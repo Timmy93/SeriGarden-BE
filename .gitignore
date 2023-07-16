@@ -154,4 +154,4 @@ cython_debug/
 .log
 DB
 Config/
-.idea
+.idea/
