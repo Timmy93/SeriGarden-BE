@@ -1,16 +1,32 @@
-# This is a sample Python script.
+from flask import Flask, url_for, redirect, jsonify
+from flask_cors import CORS
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+from GardenOrchestrator import GardenOrchestrator
 
 
-# Press the green button in the gutter to run the script.
+def main():
+    ao = GardenOrchestrator()
+    app = Flask(__name__)
+    CORS(app, origins=ao.getAllowedCorsSites(), expose_headers=["Content-Disposition"])
+
+    @app.route("/")
+    def home():
+        return redirect(url_for('show_status'))
+
+    @app.route("/status")
+    def show_status():
+        res = ao.getPlantRecap()
+        return jsonify(res)
+
+    @app.route("/install")
+    def install():
+        if ao.install():
+            return jsonify("Database installed")
+        else:
+            return jsonify("Cannot setup database")
+
+    app.run(host='0.0.0.0', port=ao.getPort())
+
+
 if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    main()
