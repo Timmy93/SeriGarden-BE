@@ -1,10 +1,9 @@
 import logging
 import os
 import tomllib
-
 import mariadb
-
 from Database import Database
+from MqttClient import MqttClient
 
 
 class GardenOrchestrator:
@@ -15,6 +14,8 @@ class GardenOrchestrator:
         self.initialize_log()
         # Connect to DB
         self.db = self.connect_to_db()
+        # Connect to MQTT
+        self.mqttc = MqttClient(self.config, self.logging, self.db)
 
     def install(self):
         """
@@ -29,7 +30,9 @@ class GardenOrchestrator:
         return outcome
 
     def getPlantRecap(self):
-        return "WIP"
+        actions = self.elaborateWatering()
+        self.trasmitActions(actions)
+        return actions
 
     def getPort(self):
         port = self.config.get('Site').get('port') or 5000
@@ -72,3 +75,20 @@ class GardenOrchestrator:
         allowed = self.config.get('Site').get('cors') or ['http://localhost']
         self.logging.debug("CORS allowed: " + str(allowed))
         return allowed
+
+    def elaborateWatering(self):
+        """
+        This is the core function of the script that elaborate the status of the plant based on several parameters
+        :return:
+        """
+        status = self.db.getPlantLastDetections()
+        #TODO Figure out the controls to implement
+        return
+
+    def trasmitActions(self, actions):
+        """
+        This function will inform the different sensor if any action is required
+        :param actions:
+        :return:
+        """
+        pass

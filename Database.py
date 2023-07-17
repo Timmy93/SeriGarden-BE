@@ -66,7 +66,7 @@ class Database:
         return self.createTable(sql)
 
     def createPlantHistory(self):
-        """Create a table containing all the known plant"""
+        """Create a table containing all the plant status detection"""
         sql = """CREATE TABLE """ + self.plant_history + """ (
                     detection_id INT auto_increment NOT NULL,
                     plant_id INT NOT NULL,
@@ -95,3 +95,51 @@ class Database:
                 COLLATE=utf8mb4_general_ci
                 COMMENT='The last watering done';"""
         return self.createTable(sql)
+
+    def getPlantID(self):
+        """
+        Retrieve the list of all plant ID monitored
+        :return:
+        """
+        pass
+
+    def getPlantLastDetections(self):
+        """
+        Retrieve the recap of all plant detection
+        :return:
+        """
+        pass
+
+    def addPlantDetection(self, plant_id: int, humidity: int):
+        """
+        Add a plant detection - If the plant is missing register the new Plant
+        :return:
+        """
+        if not self.knownPlant(plant_id):
+            self.insertNewPlant(plant_id)
+        self.insertPlantDetection(plant_id, humidity)
+
+    def knownPlant(self, plant_id: int) -> bool:
+        """
+        Check if a plant exists
+        :param plant_id: The plant id to check
+        :return: The presence of the plant
+        """
+        return True
+
+    def insertNewPlant(self, plant_id: int):
+        """
+        Register a new plant in the DB
+        :param plant_id: The plant id
+        :return:
+        """
+        pass
+
+    def insertPlantDetection(self, plant_id: int, humidity: int):
+        """
+        Save a new humidity detection in the DB
+        :param plant_id:
+        :param humidity:
+        :return:
+        """
+        pass
