@@ -10,10 +10,10 @@ class MqttClient:
     def on_connect(self, client, userdata, flags, rc):
         print("Connected with result code " + str(rc))
 
-        # Connect to all plant
-        for plant in self.db.getPlantID():
-            client.subscribe("plant/" + str(plant))
-            self.logging.info("Subscriber to topic of plant: " + str(plant))
+        # Connect to all plant topics
+        for plant_id in self.db.getAllPlantID():
+            client.subscribe("plant_id/" + str(plant_id))
+            self.logging.info("Subscriber to topic of plant_id: " + str(plant_id))
 
 
     def on_message(self, client, userdata, msg):

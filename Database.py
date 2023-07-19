@@ -96,7 +96,7 @@ class Database:
                 COMMENT='The last watering done';"""
         return self.createTable(sql)
 
-    def getPlantID(self):
+    def getAllPlantID(self):
         """
         Retrieve the list of all plant ID monitored
         :return:
@@ -110,14 +110,36 @@ class Database:
         """
         pass
 
-    def addPlantDetection(self, plant_id: int, humidity: int):
+    def getPlantSensorId(self, plant_id):
         """
-        Add a plant detection - If the plant is missing register the new Plant
+        Retrieve the current sensor id of this plant
+        :param plant_id:
         :return:
         """
+        sql = """
+            SELECT nodemcu_id
+            FROM """ + self.plant_inventory + """
+            WHERE plant_id = ?;
+        """
+        parameters = (plant_id,)
+        results = self.executeMassiveQuery(sql, parameters)
+        if len(results) > 0:
+            return results[0]['nodemcu_id']
+        else:
+            self.logging.warning("This plant [" + str(plant_id) + "] has no sensor registered")
+            return None
+
+    def addPlantDetection(self, plant_id: int, humidity: int) -> int | None:
+        """
+        Add a plant detection - If the plant is missing register the new Plant
+        :return: The detection ID
+        """
         if not self.knownPlant(plant_id):
-            self.insertNewPlant(plant_id)
-        self.insertPlantDetection(plant_id, humidity)
+            self.logging.warning("Attempting to insert detection for an unknown plant: [" + str(plant_id) + "]")
+            return None
+        else:
+            sensor_id = self.getPlantSensorId(plant_id)
+            return self.insertPlantDetection(plant_id, humidity, sensor_id)
 
     def knownPlant(self, plant_id: int) -> bool:
         """
@@ -125,21 +147,89 @@ class Database:
         :param plant_id: The plant id to check
         :return: The presence of the plant
         """
-        return True
+        sql = """
+            SELECT plant_id
+            FROM """ + self.plant_inventory + """
+            WHERE plant_id = ?;
+        """
+        parameters = (plant_id,)
+        results = self.executeMassiveQuery(sql, parameters)
+        return len(results) > 0
 
-    def insertNewPlant(self, plant_id: int):
+    def insertNewPlant(self, sensor_id: int, plant_name: str, owner: str, plant_location: str, plant_type: str):
         """
         Register a new plant in the DB
-        :param plant_id: The plant id
-        :return:
+        :param sensor_id: The monitoring sensor ID
+        :param plant_type: The plant type
+        :param plant_location: The plant location
+        :param owner: The plant owner
+        :param plant_name: The plant name
+        :return: The plant ID
         """
-        pass
+        sql = """INSERT INTO """ + self.plant_inventory + """
+                (plant_name, nodemcu_id, owner, plant_location, plant_type)
+                VALUES(?, ?, ?, ?, ?);
+            """
+        values = (plant_name, sensor_id, owner, plant_location, plant_type)
+        return self.insertValues(sql, values)
 
-    def insertPlantDetection(self, plant_id: int, humidity: int):
+    def insertPlantDetection(self, plant_id: int, humidity: int, sensor_id: int):
         """
         Save a new humidity detection in the DB
-        :param plant_id:
-        :param humidity:
-        :return:
+        :param sensor_id: The detection sensor
+        :param plant_id: The detected plant
+        :param humidity: The detected soil humidity
+        :return: The detection activity ID
         """
-        pass
+        sql = """INSERT INTO """ + self.plant_history + """
+                (plant_id, plant_hum, nodemcu_id)
+                VALUES(?, ?, ?);
+            """
+        values = (plant_id, humidity, sensor_id)
+        return self.insertValues(sql, values)
+
+    def insertPlantWatering(self, plant_id: int, water_quantity: int) -> int | None:
+        """
+        Insert a watering activity in the DB
+        :param plant_id: The watered plant
+        :param water_quantity: The water quantity
+        :return: The watering activity ID
+        """
+        sql = """INSERT INTO """ + self.plant_water + """
+                       (plant_id, water_quantity)
+                       VALUES(?, ?);
+                   """
+        values = (plant_id, water_quantity)
+        return self.insertValues(sql, values)
+
+    def insertValues(self, insert_query: str, values: tuple):
+        """
+        Insert the given values inside the DB
+        :param insert_query: The insert query to run
+        :param values: The values to insert
+        :return: The generated ID
+        """
+        with self.dbSemaphore:
+            cur = self.connection.cursor()
+            cur.execute(insert_query, tuple(values))
+            self.connection.commit()
+            return cur.lastrowid
+
+    def executeMassiveQuery(self, sql, values=None):
+        with self.dbSemaphore:
+            c = self.connection.cursor()
+            if values:
+                c.execute(sql, values)
+            else:
+                c.execute(sql)
+            columns = [item[0] for item in c.description]
+            res = c.fetchall()
+
+        # Generate response
+        result = []
+        for record in res:
+            out = {}
+            for i, column in enumerate(columns):
+                out[column] = record[i]
+            result.append(out)
+        return result
