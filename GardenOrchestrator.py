@@ -15,7 +15,7 @@ class GardenOrchestrator:
         # Connect to DB
         self.db = self.connect_to_db()
         # Connect to MQTT
-        self.mqttc = MqttClient(self.config, self.logging, self.db)
+        self.mqttc = MqttClient(self.config['MQTT'], self.logging, self)
 
     def install(self):
         """
@@ -28,6 +28,15 @@ class GardenOrchestrator:
         else:
             self.logging.warning("Cannot create DB")
         return outcome
+
+    def add_plant(self, plant_name: str, sensor_id: int, owner: str, plant_location: str, plant_type: str):
+        return self.db.insertNewPlant(sensor_id, plant_name, owner, plant_location, plant_type)
+
+    def add_detection(self, plant_id: int, humidity: int, sensor_id: int):
+        return self.db.insertPlantDetection(plant_id, humidity, sensor_id)
+
+    def add_water(self, plant_id: int, water_quantity: int):
+        return self.db.insertPlantWatering(plant_id, water_quantity)
 
     def getPlantRecap(self):
         actions = self.elaborateWatering()
@@ -83,7 +92,7 @@ class GardenOrchestrator:
         """
         status = self.db.getPlantLastDetections()
         #TODO Figure out the controls to implement
-        return
+        return {}
 
     def trasmitActions(self, actions):
         """
@@ -91,4 +100,13 @@ class GardenOrchestrator:
         :param actions:
         :return:
         """
+        # TODO Implement using MQTT
         pass
+
+    def getAllPlantID(self):
+        """
+        Retrieve all the plant id in the inventory
+        :return:
+        """
+        values = self.db.getAllPlantID()
+        return [d['plant_id'] for d in values]

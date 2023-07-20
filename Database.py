@@ -101,14 +101,34 @@ class Database:
         Retrieve the list of all plant ID monitored
         :return:
         """
-        pass
+        sql = """SELECT plant_id
+                FROM plant_inventory
+                ORDER BY plant_id;
+                """
+        results = self.executeMassiveQuery(sql)
+        if len(results) > 0:
+            return results
+        else:
+            self.logging.warning("Cannot retrieve any plant")
+            return None
 
     def getPlantLastDetections(self):
         """
         Retrieve the recap of all plant detection
         :return:
         """
-        pass
+        sql = """SELECT pi2.plant_id, pi2.plant_name, pi2.nodemcu_id , pi2.owner, pi2.plant_location, pi2.plant_type, MAX(ph.timestamp) 
+                FROM """ + self.plant_history + """ ph 
+                RIGHT JOIN """ + self.plant_inventory + """ pi2 ON ph.plant_id=pi2.plant_id 
+                GROUP BY ph.plant_id
+                ORDER BY plant_id;
+                """
+        results = self.executeMassiveQuery(sql)
+        if len(results) > 0:
+            return results
+        else:
+            self.logging.warning("Cannot retrieve last detection recap")
+            return None
 
     def getPlantSensorId(self, plant_id):
         """
