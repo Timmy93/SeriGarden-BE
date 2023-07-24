@@ -28,7 +28,7 @@ class MessageHandler(Thread):
             if method.lower() == "d":
                 self.manageNewDetection(tokens)
             elif method.lower() == "w":
-                self.manageWatering(tokens)
+                self.manageWateringAck(tokens)
             else:
                 self.logging.warning("Unkown method [" + str(method) + "]")
                 raise ValueError("Unkown method")
@@ -47,9 +47,14 @@ class MessageHandler(Thread):
         self.message_values = len(tokens)
         return self.message_values > 1
 
-    def manageWatering(self, tokens):
-        self.logging.warning("Unimplemented method")
-        print("Unimplemented method")
+    def manageWateringAck(self, tokens):
+        if self.message_values == 2:
+            watering_id = int(tokens[1])
+            self.go.ack_watering(watering_id)
+            self.logging.debug("Confirmed watering - plant_id " + str(self.plant_id))
+        else:
+            self.logging.warning("Cannot manage this message as a watering ack: [" + str(self.message) + "]")
+            raise ValueError("Cannot manage this message as a watering ack")
 
     def manageNewDetection(self, tokens):
         if self.message_values == 3:

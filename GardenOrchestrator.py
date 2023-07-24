@@ -16,6 +16,8 @@ class GardenOrchestrator:
         self.db = self.connect_to_db()
         # Connect to MQTT
         self.mqttc = MqttClient(self.config['MQTT'], self.logging, self)
+        self.mqttBroker = MqttClient(self.config['MQTT'], self.logging, self)
+        self.mqttc.start()
 
     def install(self):
         """
@@ -23,22 +25,51 @@ class GardenOrchestrator:
         :return:
         """
         outcome = self.db.createDB()
-        if outcome:
-            self.logging.info("Database created")
-        else:
-            self.logging.warning("Cannot create DB")
+        outcome = outcome + self.populateDB()
         return outcome
 
     def add_plant(self, plant_name: str, sensor_id: int, owner: str, plant_location: str, plant_type: str):
+        """
+        Insert a new plant in the DB
+        :param plant_name: The plant name
+        :param sensor_id: The sensor that is managing the plant
+        :param owner: The plant owner
+        :param plant_location: The plant location
+        :param plant_type: The plant type
+        :return:
+        """
         return self.db.insertNewPlant(sensor_id, plant_name, owner, plant_location, plant_type)
 
     def add_detection(self, plant_id: int, humidity: int, sensor_id: int):
+        """
+        Insert a humidity detection received from a sensor
+        :param plant_id: The monitored plant
+        :param humidity: The detected humidity
+        :param sensor_id: The sensor that is sending the measure
+        :return:
+        """
         return self.db.insertPlantDetection(plant_id, humidity, sensor_id)
 
     def add_water(self, plant_id: int, water_quantity: int):
-        return self.db.insertPlantWatering(plant_id, water_quantity)
+        """
+        The request to the sensor of plant watering
+        :param plant_id:
+        :param water_quantity:
+        :return:
+        """
+        self.logging.info("Requesting " + str(water_quantity) + "ml watering to plant [" + str(plant_id) + "]")
+        watering_id = self.db.insertPlantWatering(plant_id, water_quantity)
+        return self.requestWatering(plant_id, water_quantity, watering_id)
+
+    def ack_watering(self, watering_id: int):
+        return self.db.ackWatering(watering_id)
 
     def getPlantRecap(self):
+        status = self.db.getPlantLastDetections()
+        return status
+
+    def getPlantActions(self):
+        # TODO Implement automatic watering request
         actions = self.elaborateWatering()
         self.trasmitActions(actions)
         return actions
@@ -111,3 +142,28 @@ class GardenOrchestrator:
         """
         values = self.db.getAllPlantID()
         return [d['plant_id'] for d in values]
+
+    def populateDB(self):
+        self.logging.warning("Populate to implement")
+        return True
+
+    def requestWatering(self, plant_id: int, water_quantity: int, watering_id: int):
+        water_time = self.elaborateWaterTime(water_quantity)
+        return self.mqttBroker.send_message("water/" + str(plant_id), "w_"+str(watering_id)+"_"+str(water_time))
+
+    @staticmethod
+    def elaborateWaterTime(water_quantity):
+        """
+        Function used to calculate the watering time for a given quantity
+        :param water_quantity:
+        :return:
+        """
+        # TODO Measure real values - Empiric measure
+        # water_quantity = (water_time - initial_delta) * flow_rate
+        # Increase to wait more time before starting to count water
+        initial_delta = 50
+        # Reduce flow_rate to increase the watering time
+        flow_rate = 0.8
+        water_time = round(water_quantity/flow_rate + initial_delta)
+        return water_time
+

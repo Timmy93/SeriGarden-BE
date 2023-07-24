@@ -36,6 +36,10 @@ class Database:
         outcome = outcome and self.createPlantInventory()
         outcome = outcome and self.createPlantHistory()
         outcome = outcome and self.createPlantWaterHistory()
+        if outcome:
+            self.logging.info("DB setup completed")
+        else:
+            self.logging.warning("Cannot create DB tables")
         return outcome
 
     def createTable(self, sql: str):
@@ -50,7 +54,7 @@ class Database:
 
     def createPlantInventory(self):
         """Create a table containing all the known plant"""
-        sql = """CREATE TABLE """ + self.plant_inventory + """ (
+        sql = """CREATE TABLE IF NOT EXISTS """ + self.plant_inventory + """ (
                     plant_id INT auto_increment NOT NULL,
                     plant_name varchar(256) NULL,
                     nodemcu_id INT NULL,
@@ -67,7 +71,7 @@ class Database:
 
     def createPlantHistory(self):
         """Create a table containing all the plant status detection"""
-        sql = """CREATE TABLE """ + self.plant_history + """ (
+        sql = """CREATE TABLE IF NOT EXISTS """ + self.plant_history + """ (
                     detection_id INT auto_increment NOT NULL,
                     plant_id INT NOT NULL,
                     plant_hum INT NOT NULL,
@@ -83,10 +87,11 @@ class Database:
 
     def createPlantWaterHistory(self):
         """Create a table containing all the last watering done"""
-        sql = """CREATE TABLE """ + self.plant_water + """ (
+        sql = """CREATE TABLE IF NOT EXISTS """ + self.plant_water + """ (
                     watering_id INT auto_increment NOT NULL,
                     plant_id INT NOT NULL,
                     water_quantity INT NOT NULL,
+                    watering_done BOOL NOT NULL DEFAULT FALSE,
                     timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     CONSTRAINT watering_id_PK PRIMARY KEY (watering_id)
                 )
@@ -117,11 +122,31 @@ class Database:
         Retrieve the recap of all plant detection
         :return:
         """
-        sql = """SELECT pi2.plant_id, pi2.plant_name, pi2.nodemcu_id , pi2.owner, pi2.plant_location, pi2.plant_type, MAX(ph.timestamp) 
-                FROM """ + self.plant_history + """ ph 
+        sql = """SELECT ph.plant_id, pi2.plant_name, pi2.nodemcu_id, pi2.owner, pi2.plant_location, pi2.plant_type, ph.plant_hum, ph.timestamp as detection_ts, pw.water_quantity, pw.timestamp as watering_ts
+                FROM (
+                    SELECT *
+                    FROM """ + self.plant_history + """ ph 
+                    JOIN (
+                        SELECT MAX(ph_max.timestamp) AS max_ts
+                        FROM """ + self.plant_history + """ ph_max
+                        GROUP BY ph_max.plant_id
+                        ORDER BY ph_max.plant_id
+                    ) tt on ph.timestamp = tt.max_ts
+                    ORDER BY ph.plant_id 
+                ) ph
+                JOIN (
+                    SELECT *
+                    FROM plant_water pw 
+                    JOIN (
+                        SELECT MAX(pw_max.timestamp) AS max_ts
+                        FROM plant_water pw_max
+                        GROUP BY pw_max.plant_id
+                        ORDER BY pw_max.plant_id
+                    ) tt on pw.timestamp = tt.max_ts
+                ) pw ON ph.plant_id = pw.plant_id
                 RIGHT JOIN """ + self.plant_inventory + """ pi2 ON ph.plant_id=pi2.plant_id 
                 GROUP BY ph.plant_id
-                ORDER BY plant_id;
+                ORDER BY ph.plant_id
                 """
         results = self.executeMassiveQuery(sql)
         if len(results) > 0:
@@ -222,6 +247,14 @@ class Database:
         values = (plant_id, water_quantity)
         return self.insertValues(sql, values)
 
+    def ackWatering(self, watering_id: int):
+        sql = """UPDATE """ + self.plant_water + """
+                       SET watering_done = TRUE
+                       WHERE watering_id = ?;
+                """
+        values = (watering_id, )
+        return self.insertValues(sql, values)
+
     def insertValues(self, insert_query: str, values: tuple):
         """
         Insert the given values inside the DB
@@ -253,3 +286,9 @@ class Database:
                 out[column] = record[i]
             result.append(out)
         return result
+
+    def populateDB(self):
+        self.logging.warning("Populate to implement")
+        return True
+
+
