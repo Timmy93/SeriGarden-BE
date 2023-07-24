@@ -1,7 +1,7 @@
 import logging
 
 import paho.mqtt.client as mqtt
-
+from socket import gaierror
 from MessageHandler import MessageHandler
 
 
@@ -36,3 +36,9 @@ class MqttClient:
             self.logging.error("Cannot connect to MQTT host: " + str(config.get("host")) + ":" + str(config.get("port")))
             print("Cannot connect to MQTT host: " + str(config.get("host")) + ":" + str(config.get("port")))
             exit(1)
+        except gaierror:
+            self.logging.error("Host: [" + str(config.get("host")) + "] not found")
+            print("Host not found")
+            exit(1)
+
+
