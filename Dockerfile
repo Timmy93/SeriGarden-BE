@@ -4,7 +4,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+sudo apt install libmariadb3 libmariadb-dev
+
 COPY requirements.txt requirements.txt
-RUN pip3 install -r requirements.txt
+RUN apt-get update \
+    && apt-get install libmariadb3 libmariadb-dev -y \
+    && apt-get clean \
+    && pip3 install --user -r requirements.txt
 
 CMD [ "python3", "main.py"]
