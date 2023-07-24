@@ -6,7 +6,7 @@ networks:
     name: "${NETWORK_ID}"
 
 services:
-  giornalettiere:
+  serigarden:
     container_name: sg-be
     image: timmy93/serigarden-be:latest
     environment:

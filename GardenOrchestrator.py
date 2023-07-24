@@ -62,8 +62,9 @@ class GardenOrchestrator:
         Initialize log file
         :return:
         """
+        filename = os.path.join('Config', self.config['Log']['logFile'])
         self.logging.basicConfig(
-            filename=self.config['Log']['logFile'],
+            filename=filename,
             level=self.config['Log']['logLevel'],
             format='%(asctime)s %(levelname)-8s %(message)s')
         self.logging.info("Garden Sericloud - Started")
