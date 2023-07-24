@@ -11,4 +11,6 @@ RUN apt-get update \
     && apt-get clean \
     && pip3 install --user -r requirements.txt
 
+COPY . .
+
 CMD [ "python3", "main.py"]
