@@ -1,0 +1,64 @@
+version: "3"
+
+networks:
+  network1:
+    external: true
+    name: "${NETWORK_ID}"
+
+services:
+  giornalettiere:
+    container_name: sg-be
+    image: timmy93/serigarden-be:latest
+    environment:
+      TZ: ${TZ}
+    restart: unless-stopped
+    networks:
+      - network1
+    volumes:
+      - ${SG_CONFIG}:/app/Config
+
+  db:
+    container_name: sg-db
+    image: mariadb:${DB_VERSION}
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+      - MARIADB_AUTO_UPGRADE=1
+      - MARIADB_DISABLE_UPGRADE_BACKUP=1
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${MYSQL_USER}
+    restart: unless-stopped
+    ports:
+      - ${DB_PORT}:3306
+    networks:
+      - network1
+    volumes:
+      - ${DB_DATA}:/var/lib/mysql:Z
+
+  mosquitto:
+    container_name: sg-mqtt
+    image: eclipse-mosquitto:${M_VERSION}
+    environment:
+      - TZ=${TZ}
+    ports:
+      - ${MQTT_PORT}:2883
+      - ${MQTTS_PORT}:8883
+      - ${M_PORT}:9001
+    networks:
+      - network1
+    volumes:
+      - ${M_CONF}:/mosquitto/config
+      - ${M_DATA}:/mosquitto/data
+      - ${M_LOG}:/mosquitto/log
+
+  node-red:
+    image: nodered/node-red:${NR_VERSION}
+    environment:
+      - TZ=${TZ}
+    ports:
+      - ${NR_PORT}:1880
+    networks:
+      - network1
+    volumes:
+      - ${NR_DATA}:/data

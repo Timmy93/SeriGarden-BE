@@ -1,0 +1,14 @@
+#Project files
+.git
+.idea
+venv
+__pycache__
+temp
+.gitignore
+
+
+#Settings
+Config
+.env
+*.log
+README.md
