@@ -2,6 +2,7 @@ import logging
 
 from flask import Flask, url_for, redirect, jsonify
 from flask_cors import CORS
+from waitress import serve
 
 from GardenOrchestrator import GardenOrchestrator
 
@@ -59,7 +60,8 @@ def main():
         else:
             return jsonify("Cannot add detection for plant [" + str(plant_id) + "]")
 
-    app.run(host='0.0.0.0', port=go.getPort())
+    serve(app, host='0.0.0.0', port=go.getPort())
+    #app.run(host='0.0.0.0', port=go.getPort())
 
 
 if __name__ == '__main__':
