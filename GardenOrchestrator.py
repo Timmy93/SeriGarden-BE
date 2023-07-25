@@ -24,9 +24,7 @@ class GardenOrchestrator:
         Execute the first installation
         :return:
         """
-        outcome = self.db.createDB()
-        outcome = outcome + self.populateDB()
-        return outcome
+        return self.db.install()
 
     def add_plant(self, plant_name: str, sensor_id: int, owner: str, plant_location: str, plant_type: str):
         """

@@ -11,10 +11,15 @@ class Database:
     def __init__(self, config, log: logging):
         self.config = config
         self.logging = log
-        self.connection = self.connect()
+        self._connection = None
+        self.test_connection()
         self.dbSemaphore = threading.Condition()
 
-    def connect(self):
+    def _connect(self):
+        """
+        Try to get DB connection
+        :return: The DB connection
+        """
         try:
             conn = mariadb.connect(
                 user=self.config.get('db_user'),
@@ -28,6 +33,33 @@ class Database:
             print(f"Error connecting to MariaDB Platform: {e}")
             self.logging.error("Cannot log in to MariaDB")
             raise e
+
+    def disconnect(self):
+        """
+        Disconnect from DB
+        :return:
+        """
+        if self._connection is not None:
+            self._connection.close()
+            self._connection = None
+
+    def get_connection(self):
+        """
+        Retrieve the DB connection
+        :return:
+        """
+        if self._connection is None:
+            return self._connect()
+        else:
+            return self._connection
+
+    def test_connection(self):
+        """
+        Test the DB connection
+        :return:
+        """
+        self.get_connection()
+        self.disconnect()
 
     def createDB(self):
         """Initialize the DB creating tables and loading missing data"""
@@ -43,9 +75,10 @@ class Database:
         return outcome
 
     def createTable(self, sql: str):
-        c = self.connection.cursor()
+        c = self.get_connection().cursor()
         try:
             c.execute(sql)
+            c.close()
             return True
         except mariadb.Error as e:
             self.logging.warning("Cannot create database: " + str(e))
@@ -263,20 +296,26 @@ class Database:
         :return: The generated ID
         """
         with self.dbSemaphore:
-            cur = self.connection.cursor()
+            cur = self.get_connection().cursor()
             cur.execute(insert_query, tuple(values))
-            self.connection.commit()
+            self.get_connection().commit()
+            # Free DB resources
+            cur.close()
+            self.disconnect()
             return cur.lastrowid
 
     def executeMassiveQuery(self, sql, values=None):
         with self.dbSemaphore:
-            c = self.connection.cursor()
+            c = self.get_connection().cursor()
             if values:
                 c.execute(sql, values)
             else:
                 c.execute(sql)
             columns = [item[0] for item in c.description]
             res = c.fetchall()
+            # Free DB resources
+            c.close()
+            self.disconnect()
 
         # Generate response
         result = []
@@ -291,4 +330,13 @@ class Database:
         self.logging.warning("Populate to implement")
         return True
 
-
+    def install(self):
+        """
+        Install the DB in a single transaction
+        :return:
+        """
+        with self.dbSemaphore:
+            outcome = self.createDB()
+            outcome = outcome + self.populateDB()
+            self.disconnect()
+            return outcome
