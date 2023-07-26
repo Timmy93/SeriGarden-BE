@@ -161,9 +161,9 @@ class GardenOrchestrator:
         # TODO Measure real values - Empiric measure
         # water_quantity = (water_time - initial_delta) * flow_rate
         # Increase to wait more time before starting to count water
-        initial_delta = 50
+        initial_delta = 300
         # Reduce flow_rate to increase the watering time
-        flow_rate = 0.8
+        flow_rate = 1/34.26
         water_time = round(water_quantity/flow_rate + initial_delta)
         return water_time
 
