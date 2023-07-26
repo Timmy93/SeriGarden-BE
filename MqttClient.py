@@ -17,6 +17,7 @@ class MqttClient:
             self.logging.info("Subscribed to topic : plant_id/" + str(plant_id))
 
     def on_message(self, client, userdata, msg):
+        self.logging.info("Received message")
         m = MessageHandler(self.logging, msg.payload.decode('utf-8'), msg.topic, self.go)
         m.start()
 

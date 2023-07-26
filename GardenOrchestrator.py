@@ -46,6 +46,7 @@ class GardenOrchestrator:
         :param sensor_id: The sensor that is sending the measure
         :return:
         """
+        self.logging.debug("Adding detection")
         return self.db.insertPlantDetection(plant_id, humidity, sensor_id)
 
     def add_water(self, plant_id: int, water_quantity: int):
@@ -63,6 +64,7 @@ class GardenOrchestrator:
         return self.db.ackWatering(watering_id)
 
     def getPlantRecap(self):
+        self.logging.debug("Gettin recap")
         status = self.db.getPlantLastDetections()
         return status
 

@@ -60,8 +60,8 @@ class MessageHandler(Thread):
         if self.message_values == 3:
             humidity = int(tokens[1])
             sensor_id = int(tokens[2])
-            self.go.add_detection(self.plant_id, humidity, sensor_id)
-            self.logging.debug("Added detection - plant_id " + str(self.plant_id) + " - hum: " + str(humidity) + " - sensor: " + str(sensor_id))
+            det_id = self.go.add_detection(self.plant_id, humidity, sensor_id)
+            self.logging.debug("Added detection [" + str(det_id) + "] - plant_id " + str(self.plant_id) + " - hum: " + str(humidity) + " - sensor: " + str(sensor_id))
         else:
             self.logging.warning("Cannot manage this message as a detection: [" + str(self.message) + "]")
             raise ValueError("Cannot manage this message as a detection")

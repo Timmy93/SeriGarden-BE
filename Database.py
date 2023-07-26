@@ -75,9 +75,11 @@ class Database:
         return outcome
 
     def createTable(self, sql: str):
-        c = self.get_connection().cursor()
+        con = self.get_connection()
+        c = con.cursor()
         try:
             c.execute(sql)
+            con.commit()
             c.close()
             return True
         except mariadb.Error as e:
@@ -143,7 +145,7 @@ class Database:
                 FROM plant_inventory
                 ORDER BY plant_id;
                 """
-        results = self.executeMassiveQuery(sql)
+        results = self.getValuesFromDB(sql)
         if len(results) > 0:
             return results
         else:
@@ -181,7 +183,7 @@ class Database:
                 GROUP BY ph.plant_id
                 ORDER BY ph.plant_id
                 """
-        results = self.executeMassiveQuery(sql)
+        results = self.getValuesFromDB(sql)
         if len(results) > 0:
             return results
         else:
@@ -200,7 +202,7 @@ class Database:
             WHERE plant_id = ?;
         """
         parameters = (plant_id,)
-        results = self.executeMassiveQuery(sql, parameters)
+        results = self.getValuesFromDB(sql, parameters)
         if len(results) > 0:
             return results[0]['nodemcu_id']
         else:
@@ -216,6 +218,7 @@ class Database:
             self.logging.warning("Attempting to insert detection for an unknown plant: [" + str(plant_id) + "]")
             return None
         else:
+            self.logging.debug("Adding detection for plant ["+str(plant_id)+"]")
             sensor_id = self.getPlantSensorId(plant_id)
             return self.insertPlantDetection(plant_id, humidity, sensor_id)
 
@@ -231,7 +234,7 @@ class Database:
             WHERE plant_id = ?;
         """
         parameters = (plant_id,)
-        results = self.executeMassiveQuery(sql, parameters)
+        results = self.getValuesFromDB(sql, parameters)
         return len(results) > 0
 
     def insertNewPlant(self, sensor_id: int, plant_name: str, owner: str, plant_location: str, plant_type: str):
@@ -296,15 +299,18 @@ class Database:
         :return: The generated ID
         """
         with self.dbSemaphore:
-            cur = self.get_connection().cursor()
+            con = self.get_connection()
+            cur = con.cursor()
             cur.execute(insert_query, tuple(values))
-            self.get_connection().commit()
+            insertion_id = cur.lastrowid
+            con.commit()
+
             # Free DB resources
             cur.close()
             self.disconnect()
-            return cur.lastrowid
+            return insertion_id
 
-    def executeMassiveQuery(self, sql, values=None):
+    def getValuesFromDB(self, sql, values=None):
         with self.dbSemaphore:
             c = self.get_connection().cursor()
             if values:
