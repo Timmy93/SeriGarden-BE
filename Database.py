@@ -157,7 +157,7 @@ class Database:
         Retrieve the recap of all plant detection
         :return:
         """
-        sql = """SELECT ph.plant_id, pi2.plant_name, pi2.nodemcu_id, pi2.owner, pi2.plant_location, pi2.plant_type, ph.plant_hum, ph.timestamp as detection_ts, pw.water_quantity, pw.timestamp as watering_ts
+        sql = """SELECT pi2.plant_id, pi2.plant_name, pi2.nodemcu_id, pi2.owner, pi2.plant_location, pi2.plant_type, ph.plant_hum, ph.timestamp as detection_ts, pw.water_quantity, pw.timestamp as watering_ts
                 FROM (
                     SELECT *
                     FROM """ + self.plant_history + """ ph 
@@ -169,20 +169,21 @@ class Database:
                     ) tt on ph.timestamp = tt.max_ts
                     ORDER BY ph.plant_id 
                 ) ph
-                JOIN (
+                LEFT JOIN (
                     SELECT *
-                    FROM plant_water pw 
+                    FROM """ + self.plant_water + """ pw 
                     JOIN (
                         SELECT MAX(pw_max.timestamp) AS max_ts
-                        FROM plant_water pw_max
+                        FROM """ + self.plant_water + """ pw_max
                         GROUP BY pw_max.plant_id
                         ORDER BY pw_max.plant_id
                     ) tt on pw.timestamp = tt.max_ts
                 ) pw ON ph.plant_id = pw.plant_id
                 RIGHT JOIN """ + self.plant_inventory + """ pi2 ON ph.plant_id=pi2.plant_id 
-                GROUP BY ph.plant_id
-                ORDER BY ph.plant_id
-                """
+                GROUP BY pi2.plant_id
+                ORDER BY pi2.plant_id
+        """
+        print(sql)
         results = self.getValuesFromDB(sql)
         if len(results) > 0:
             return results
