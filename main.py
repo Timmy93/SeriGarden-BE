@@ -43,6 +43,7 @@ def main():
 
     @app.route("/add/water/<plant_id>")
     def add_water(plant_id):
+        plant_id = unicode(plant_id, 'utf-8')
         if plant_id.is_numeric():
             plant_id = int(plant_id)
             water_quantity = 100
