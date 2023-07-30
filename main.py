@@ -41,12 +41,13 @@ def main():
             logging.warning("Cannot insert this plant [" + str(plant_name) + "]")
             return jsonify("Cannot insert this plant")
 
-    @app.route("/add/water")
-    def add_water():
-        plant_id = 1
-        water_quantity = 100
-        if go.add_water(plant_id, water_quantity):
-            return jsonify("Added watering [" + str(plant_id) + "]")
+    @app.route("/add/water/<plant_id>")
+    def add_water(plant_id):
+        if plant_id.is_numeric():
+            plant_id = int(plant_id)
+            water_quantity = 100
+            if go.add_water(plant_id, water_quantity):
+                return jsonify("Added watering [" + str(plant_id) + "]")
         else:
             return jsonify("Cannot add watering for plant [" + str(plant_id) + "]")
 
