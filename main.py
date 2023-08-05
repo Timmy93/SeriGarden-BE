@@ -1,6 +1,6 @@
 import logging
 
-from flask import Flask, url_for, redirect, jsonify
+from flask import Flask, url_for, redirect, jsonify, request
 from flask_cors import CORS
 from waitress import serve
 
@@ -41,13 +41,25 @@ def main():
             logging.warning("Cannot insert this plant [" + str(plant_name) + "]")
             return jsonify("Cannot insert this plant")
 
-    @app.route("/add/water/<plant_id>")
+    @app.route("/add/water/<plant_id>", methods=['GET'])
     def add_water(plant_id):
-        if plant_id.isdigit():
-            plant_id = int(plant_id)
-            water_quantity = 100
-            if go.add_water(plant_id, water_quantity):
-                return jsonify("Added watering [" + str(plant_id) + "]")
+        water_quantity = 200
+        return generic_add_water(plant_id, water_quantity)
+
+    @app.route("/add/water/<plant_id>", methods=['POST'])
+    def add_water_post(plant_id):
+        a = request
+        try:
+            data = request.get_json()
+            water_quantity = data['quantity']
+            return generic_add_water(plant_id, water_quantity)
+        except:
+            return jsonify("Cannot add watering for plant [" + str(plant_id) + "]")
+
+
+    def generic_add_water(plant_id, water_quantity):
+        if go.add_water(plant_id, water_quantity):
+            return jsonify("Added watering [" + str(plant_id) + "]")
         else:
             return jsonify("Cannot add watering for plant [" + str(plant_id) + "]")
 

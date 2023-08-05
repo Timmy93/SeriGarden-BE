@@ -47,9 +47,10 @@ class GardenOrchestrator:
         :return:
         """
         self.logging.debug("Adding detection")
+
         return self.db.insertPlantDetection(plant_id, humidity, sensor_id)
 
-    def add_water(self, plant_id: int, water_quantity: int):
+    def add_water(self, plant_id, water_quantity):
         """
         The request to the sensor of plant watering
         :param plant_id:
@@ -57,8 +58,17 @@ class GardenOrchestrator:
         :return:
         """
         self.logging.info("Requesting " + str(water_quantity) + "ml watering to plant [" + str(plant_id) + "]")
-        watering_id = self.db.insertPlantWatering(plant_id, water_quantity)
-        return self.requestWatering(plant_id, water_quantity, watering_id)
+        # Parse request.data
+        if plant_id.isdigit() and water_quantity.isdigit():
+            # Validating input
+            plant_id = int(plant_id)
+            water_quantity = int(water_quantity)
+            # Adding requested water
+            watering_id = self.db.insertPlantWatering(plant_id, water_quantity)
+            return self.requestWatering(plant_id, water_quantity, watering_id)
+        else:
+            self.logging.warning("Invalid input received")
+            return None
 
     def ack_watering(self, watering_id: int):
         return self.db.ackWatering(watering_id)
