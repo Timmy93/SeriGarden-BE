@@ -183,7 +183,6 @@ class Database:
                 GROUP BY pi2.plant_id
                 ORDER BY pi2.plant_id
         """
-        print(sql)
         results = self.getValuesFromDB(sql)
         if len(results) > 0:
             return results
