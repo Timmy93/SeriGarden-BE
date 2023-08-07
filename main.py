@@ -10,7 +10,14 @@ from GardenOrchestrator import GardenOrchestrator
 def main():
     go = GardenOrchestrator()
     app = Flask(__name__)
-    CORS(app, origins=go.getAllowedCorsSites(), expose_headers=["Content-Disposition"])
+    app.config['SECRET_KEY'] = go.getAppSecret()
+    app.config['CORS_HEADERS'] = 'Content-Type'
+    CORS(app,
+         origins=go.getAllowedCorsSites(),
+         expose_headers=["Content-Disposition"],
+         allow_headers=["Content-Type", "Accept"],
+         methods=['GET', 'POST', 'OPTIONS']
+         )
 
     @app.route("/")
     def home():
@@ -43,25 +50,31 @@ def main():
 
     @app.route("/add/water/<plant_id>", methods=['GET'])
     def add_water(plant_id):
-        water_quantity = 200
+        water_quantity = "200"
         return generic_add_water(plant_id, water_quantity)
 
     @app.route("/add/water/<plant_id>", methods=['POST'])
     def add_water_post(plant_id):
-        a = request
         try:
+            print(request.data)
             data = request.get_json()
             water_quantity = data['quantity']
             return generic_add_water(plant_id, water_quantity)
         except:
             return jsonify("Cannot add watering for plant [" + str(plant_id) + "]")
 
-
     def generic_add_water(plant_id, water_quantity):
+        response = {
+            "plant_id": plant_id,
+            "water_requested": water_quantity,
+            "success": False,
+            "message": ""
+        }
         if go.add_water(plant_id, water_quantity):
-            return jsonify("Added watering [" + str(plant_id) + "]")
+            response["success"] = True
         else:
-            return jsonify("Cannot add watering for plant [" + str(plant_id) + "]")
+            response["message"] = "Cannot add watering for this plant"
+        return jsonify(response)
 
     @app.route("/add/detection")
     def add_detection():
@@ -74,7 +87,6 @@ def main():
             return jsonify("Cannot add detection for plant [" + str(plant_id) + "]")
 
     serve(app, host='0.0.0.0', port=go.getPort())
-    #app.run(host='0.0.0.0', port=go.getPort())
 
 
 if __name__ == '__main__':
