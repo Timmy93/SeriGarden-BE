@@ -2,11 +2,27 @@ import logging
 import os
 import tomllib
 import mariadb
+import secrets
 from Database import Database
 from MqttClient import MqttClient
 
 
 class GardenOrchestrator:
+
+    # Default configuration
+    config = {
+        "Log": {
+            "logFile": "garden.log",
+            "logLevel": 'DEBUG'
+        },
+        "Site": {
+            "cors": ["http://localhost:3000"],
+            "port": 5001,
+            "is_test": True
+        },
+        "DB": {},
+        "MQTT": {}
+    }
 
     def __init__(self):
         self.config = self.load_settings('config.toml')
@@ -15,9 +31,16 @@ class GardenOrchestrator:
         # Connect to DB
         self.db = self.connect_to_db()
         # Connect to MQTT
-        self.mqttc = MqttClient(self.config['MQTT'], self.logging, self)
-        self.mqttBroker = MqttClient(self.config['MQTT'], self.logging, self)
-        self.mqttc.start()
+        try:
+            self.mqttc = MqttClient(self.config['MQTT'], self.logging, self)
+            self.mqttBroker = MqttClient(self.config['MQTT'], self.logging, self)
+            self.mqttc.start()
+        except (TimeoutError, ValueError) as e:
+            if self.config["Site"].get("is_test", False):
+                self.logging.info("Cannot reach MQTT Server - Continuing without MQTT Server ["+str(e)+"]")
+            else:
+                self.logging.error("Cannot reach MQTT Server ["+str(e)+"]")
+                exit(1)
 
     def install(self):
         """
@@ -25,6 +48,13 @@ class GardenOrchestrator:
         :return:
         """
         return self.db.install()
+
+    def getAppSecret(self):
+        secret = self.config["Site"].get("SECRET_KEY", None)
+        if not secret:
+            self.logging.warning("Missing SECRET_KEY - Generating new random SECRET_KEY")
+            secret = secrets.token_hex()
+        return secret
 
     def add_plant(self, plant_name: str, sensor_id: int, owner: str, plant_location: str, plant_type: str):
         """
@@ -78,25 +108,23 @@ class GardenOrchestrator:
         status = self.db.getPlantLastDetections()
         return status
 
-    def getPlantActions(self):
-        # TODO Implement automatic watering request
-        actions = self.elaborateWatering()
-        self.trasmitActions(actions)
-        return actions
-
     def getPort(self):
+        """Retrieve the port for the service"""
         port = self.config.get('Site').get('port') or 5000
         return port
 
-    @staticmethod
-    def load_settings(file: str):
+    def load_settings(self, file: str):
         """
         Load setting from toml file
         :return:
         """
         path = os.path.join('Config', file)
-        with open(path, "rb") as f:
-            return tomllib.load(f)
+        try:
+            with open(path, "rb") as f:
+                return tomllib.load(f)
+        except (OSError, ):
+            self.logging.warning("Missing config file - Cannot load configuration")
+            return self.config
 
     def initialize_log(self):
         """
@@ -111,10 +139,7 @@ class GardenOrchestrator:
         self.logging.info("Garden Sericloud - Started")
 
     def connect_to_db(self):
-        """
-        Connect to backend DB
-        :return:
-        """
+        """Connect to backend DB"""
         try:
             return Database(self.config['DB'], self.logging)
         except mariadb.Error as e:
@@ -126,6 +151,12 @@ class GardenOrchestrator:
         allowed = self.config.get('Site').get('cors') or ['http://localhost']
         self.logging.debug("CORS allowed: " + str(allowed))
         return allowed
+
+    def getPlantActions(self):
+        # TODO Implement automatic watering request
+        actions = self.elaborateWatering()
+        self.trasmitActions(actions)
+        return actions
 
     def elaborateWatering(self):
         """
@@ -152,10 +183,6 @@ class GardenOrchestrator:
         """
         values = self.db.getAllPlantID()
         return [d['plant_id'] for d in values]
-
-    def populateDB(self):
-        self.logging.warning("Populate to implement")
-        return True
 
     def requestWatering(self, plant_id: int, water_quantity: int, watering_id: int):
         water_time = self.elaborateWaterTime(water_quantity)
