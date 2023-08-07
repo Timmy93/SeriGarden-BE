@@ -10,24 +10,26 @@ services:
     image: nodered/node-red:${NR_VERSION}
     environment:
       - TZ=${TZ}
+    restart: unless-stopped
     ports:
       - ${NR_PORT}:1880
     networks:
       - network1
     volumes:
       - ${NR_DATA}:/data
-
+  
   mosquitto:
     container_name: sg-mqtt
     image: eclipse-mosquitto:${M_VERSION}
     environment:
       - TZ=${TZ}
+    restart: unless-stopped
     ports:
       - ${MQTT_PORT}:2883
       - ${MQTTS_PORT}:8883
       - ${M_PORT}:9001
     networks:
-      - network1
+      - network1      
     volumes:
       - ${M_CONF}:/mosquitto/config
       - ${M_DATA}:/mosquitto/data
@@ -44,6 +46,7 @@ services:
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
+      - TZ=${TZ}
     restart: unless-stopped
     ports:
       - ${DB_PORT}:3306
@@ -64,3 +67,4 @@ services:
       - network1
     volumes:
       - ${SG_CONFIG}:/app/Config
+      
