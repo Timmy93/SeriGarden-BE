@@ -187,8 +187,11 @@ class GardenOrchestrator:
             if self.isWateringTime(plant_summary.get('plant_location')):
                 if self.wateringNeeded(humidity):
                     if self.timeToRewater(last_watering, last_request):
-                        self.logging.info("Added watering request for: " + plant_name + " #" + str(plant_id))
-                        actions.append({'plant_id': plant_id, 'plant_name': plant_name, 'water_quantity': default_watering})
+                        if default_watering > 0:
+                            self.logging.info("Added watering request for: " + plant_name + " #" + str(plant_id))
+                            actions.append({'plant_id': plant_id, 'plant_name': plant_name, 'water_quantity': default_watering})
+                        else:
+                            self.logging.info("Watering not supported for: " + plant_name + " #" + str(plant_id) + " - SKIP")
                     else:
                         self.logging.debug("Wait more time before re-watering")
                 # else:
