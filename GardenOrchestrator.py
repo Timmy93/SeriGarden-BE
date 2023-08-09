@@ -1,10 +1,14 @@
+import datetime
 import logging
 import os
+import time
 import tomllib
 import mariadb
 import secrets
 from Database import Database
 from MqttClient import MqttClient
+from Scheduler import Scheduler
+from astral import LocationInfo, sun
 
 
 class GardenOrchestrator:
@@ -41,6 +45,10 @@ class GardenOrchestrator:
             else:
                 self.logging.error("Cannot reach MQTT Server ["+str(e)+"]")
                 exit(1)
+
+    def setScheduler(self):
+        recurrence = self.config['Site'].get('recurrence', 15)
+        return Scheduler(self.logging, recurrence, self)
 
     def install(self):
         """
@@ -89,13 +97,12 @@ class GardenOrchestrator:
         """
         self.logging.info("Requesting " + str(water_quantity) + "ml watering to plant [" + str(plant_id) + "]")
         # Parse request.data
-        if plant_id.isdigit() and water_quantity.isdigit():
+        if str(plant_id).isdigit() and str(water_quantity).isdigit():
             # Validating input
             plant_id = int(plant_id)
             water_quantity = int(water_quantity)
             # Adding requested water
-            watering_id = self.db.insertPlantWatering(plant_id, water_quantity)
-            return self.requestWatering(plant_id, water_quantity, watering_id)
+            return self.requestWatering(plant_id, water_quantity)
         else:
             self.logging.warning("Invalid input received")
             return None
@@ -152,29 +159,65 @@ class GardenOrchestrator:
         self.logging.debug("CORS allowed: " + str(allowed))
         return allowed
 
-    def getPlantActions(self):
-        # TODO Implement automatic watering request
+    def evaluateWatering(self):
+        # Get action to execute based on time, humidity, default humidity
         actions = self.elaborateWatering()
-        self.trasmitActions(actions)
-        return actions
+        # Communicate to sensors to water plant if needed
+        used_water = self.transmitActions(actions)
+        return {'actions': len(actions), 'water': used_water}
 
     def elaborateWatering(self):
         """
         This is the core function of the script that elaborate the status of the plant based on several parameters
         :return:
         """
-        status = self.db.getPlantLastDetections()
-        #TODO Figure out the controls to implement
-        return {}
+        actions = []
+        summary = self.db.getPlantActionSummary()
+        for plant_summary in summary:
+            # Extract variables
+            plant_id = plant_summary.get('plant_id')
+            plant_name = plant_summary.get('plant_name')
+            default_watering = plant_summary.get('default_watering')
+            humidity = plant_summary.get('mean_value')
+            lw = plant_summary.get('last_watering_successful') if plant_summary.get('last_watering_successful') is not None else datetime.timedelta(days=30)
+            lr = plant_summary.get('last_watering_req') if plant_summary.get('last_watering_req') is not None else datetime.timedelta(days=30)
+            last_watering = datetime.datetime.now() - lw
+            last_request = datetime.datetime.now() - lr
+            # Check watering time and if it's time to re-water
+            if self.isWateringTime(plant_summary.get('plant_location')):
+                if self.wateringNeeded(humidity):
+                    if self.timeToRewater(last_watering, last_request):
+                        self.logging.info("Added watering request for: " + plant_name + " #" + str(plant_id))
+                        actions.append({'plant_id': plant_id, 'plant_name': plant_name, 'water_quantity': default_watering})
+                    else:
+                        self.logging.debug("Wait more time before re-watering")
+                # else:
+                #     self.logging.debug("Watering not needed for: " + plant_name + " #" + str(plant_id) + " [Hum: " + str(humidity) + "%]")
+            # else:
+            #     self.logging.debug("It is not watering time")
+        return actions
 
-    def trasmitActions(self, actions):
+    def transmitActions(self, actions: list):
         """
         This function will inform the different sensor if any action is required
         :param actions:
         :return:
         """
-        # TODO Implement using MQTT
-        pass
+        water = 0
+        for action in actions:
+            # Get parameters
+            plant_id = action['plant_id']
+            plant_name = action['plant_name']
+            water_quantity = action.get('water_quantity', 100)
+            # Request watering
+            self.logging.info("Requesting " + str(water_quantity) + "ml of water for plant [" + plant_name + "/#" + str(plant_id) + "]")
+            if not self.config["Site"].get("is_test", False):
+                self.add_water(plant_id, water_quantity)
+            else:
+                self.logging.info("TEST ENVIRONMENT - Watering not requested")
+            water += water_quantity
+            time.sleep(self.config['Site'].get('wait_watering', 60))
+        return water
 
     def getAllPlantID(self):
         """
@@ -184,7 +227,9 @@ class GardenOrchestrator:
         values = self.db.getAllPlantID()
         return [d['plant_id'] for d in values]
 
-    def requestWatering(self, plant_id: int, water_quantity: int, watering_id: int):
+    def requestWatering(self, plant_id: int, water_quantity: int):
+        """Register the watering request and send the MQTT message"""
+        watering_id = self.db.insertPlantWatering(plant_id, water_quantity)
         water_time = self.elaborateWaterTime(water_quantity)
         return self.mqttBroker.send_message("water/" + str(plant_id), "w_"+str(watering_id)+"_"+str(water_time))
 
@@ -204,3 +249,49 @@ class GardenOrchestrator:
         water_time = round(water_quantity/flow_rate + initial_delta)
         return water_time
 
+    def isWateringTime(self, current_location):
+        """Check if it's night"""
+        start_watering, end_watering = self.getCurrentLocationTimes(current_location)
+        # self.logging.debug("Watering time starts:" + str(start_watering) + "- Watering time ends:" + str(end_watering))
+        return self.time_in_range(start_watering, end_watering, datetime.datetime.now().time())
+
+    @staticmethod
+    def time_in_range(start, end, x):
+        """Return true if x is in the range [start, end]"""
+        if start <= end:
+            return start <= x <= end
+        else:
+            return start <= x or x <= end
+
+    def getCurrentLocationTimes(self, current_location):
+        """From geolocation get information on today sunrise and sunset"""
+        default_sunset = datetime.time(23, 0, 0)
+        default_sunrise = datetime.time(7, 0, 0)
+        if not current_location:
+            self.logging.info("Missing plant location - Using default time")
+            return default_sunset, default_sunrise
+        else:
+            try:
+                city = LocationInfo(current_location)
+                s = sun.sun(city.observer, date=datetime.datetime.now().astimezone())
+                sunrise = s['sunrise'].astimezone().time()
+                sunset = s['sunset'].astimezone().time()
+                return sunset, sunrise
+            except:
+                self.logging.warning("Cannot retrieve info base on current location - Default value provided")
+                return default_sunset, default_sunrise
+
+    @staticmethod
+    def timeToRewater(last_watering, last_request):
+        """Check if the minimum time between two watering is elapsed"""
+        minimum_minutes_between_watering = 120
+        minimum_minutes_between_requests = 15
+        can_rewater = last_watering < datetime.datetime.now() - datetime.timedelta(minutes=minimum_minutes_between_watering)
+        can_request = last_request < datetime.datetime.now() - datetime.timedelta(minutes=minimum_minutes_between_requests)
+        return can_rewater and can_request
+
+    @staticmethod
+    def wateringNeeded(humidity):
+        """Analyse if the plant require a new humidity"""
+        # TODO implement an algorithm based on plant type
+        return int(humidity) < 50

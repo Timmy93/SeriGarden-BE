@@ -9,6 +9,10 @@ from GardenOrchestrator import GardenOrchestrator
 
 def main():
     go = GardenOrchestrator()
+    #Start scheduler
+    scheduler = go.setScheduler()
+    scheduler.start()
+    #Start website
     app = Flask(__name__)
     app.config['SECRET_KEY'] = go.getAppSecret()
     app.config['CORS_HEADERS'] = 'Content-Type'
@@ -86,6 +90,7 @@ def main():
         else:
             return jsonify("Cannot add detection for plant [" + str(plant_id) + "]")
 
+    #Start webserver
     serve(app, host='0.0.0.0', port=go.getPort())
 
 

@@ -1,5 +1,12 @@
-flask
-flask_cors
-mariadb
-paho-mqtt
-waitress
+# HTTP server requirements
+flask==2.3.2
+flask_cors==4.0.0
+waitress==2.1.2
+# DB requirements
+mariadb==1.1.7
+# MQTT requirements
+paho-mqtt==1.6.1
+# Scheduled tasks requirements
+schedule==1.2
+# Get location current time
+astral==3.2
