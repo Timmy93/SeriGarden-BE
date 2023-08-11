@@ -32,6 +32,12 @@ def main():
         res = go.getPlantRecap()
         return jsonify(res)
 
+    @app.route("/statistic/daily/<plant_id>", methods=['GET'])
+    def get_daily_statistics(plant_id):
+        duration = 1
+        res = go.getPlantStatistics(plant_id, duration)
+        return jsonify(res)
+
     @app.route("/install")
     def install():
         if go.install():

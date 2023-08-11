@@ -115,6 +115,10 @@ class GardenOrchestrator:
         status = self.db.getPlantLastDetections()
         return status
 
+    def getPlantStatistics(self, plant_id, duration):
+        status = self.db.getPlantStatistics(plant_id, duration)
+        return status
+
     def getPort(self):
         """Retrieve the port for the service"""
         port = self.config.get('Site').get('port') or 5000
@@ -298,3 +302,4 @@ class GardenOrchestrator:
         """Analyse if the plant require a new humidity"""
         # TODO implement an algorithm based on plant type
         return int(humidity) < 50
+

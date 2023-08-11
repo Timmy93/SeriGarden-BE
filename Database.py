@@ -377,3 +377,12 @@ class Database:
                 GROUP BY ph.plant_id;"""
         results = self.getValuesFromDB(sql)
         return results
+
+    def getPlantStatistics(self, plant_id, duration):
+        sql = """SELECT plant_id, ROUND(AVG(plant_hum)) as 'Value', DATE( timestamp ) as 'Date', HOUR( timestamp ) as 'Hour'
+            FROM plant_history
+            WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? DAY
+            GROUP BY DATE( timestamp ), HOUR( timestamp )"""
+        parameters = (int(plant_id), int(duration))
+        results = self.getValuesFromDB(sql, parameters)
+        return results
