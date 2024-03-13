@@ -96,6 +96,7 @@ class Database:
                     owner varchar(256) NULL,
                     plant_location varchar(256) NULL,
                     plant_type varchar(256) NULL,
+                    default_watering int(11) NOT NULL DEFAULT 150 COMMENT 'The default watering value',
                     CONSTRAINT plant_id_PK PRIMARY KEY (plant_id)
                 )
                 ENGINE=InnoDB
@@ -183,7 +184,6 @@ class Database:
                 GROUP BY pi2.plant_id
                 ORDER BY pi2.plant_id
         """
-        print(sql)
         results = self.getValuesFromDB(sql)
         if len(results) > 0:
             return results
@@ -285,6 +285,7 @@ class Database:
         return self.insertValues(sql, values)
 
     def ackWatering(self, watering_id: int):
+        """Register the watering confirmation from plant"""
         sql = """UPDATE """ + self.plant_water + """
                        SET watering_done = TRUE
                        WHERE watering_id = ?;
@@ -347,3 +348,41 @@ class Database:
             outcome = outcome + self.populateDB()
             self.disconnect()
             return outcome
+
+    def getPlantActionSummary(self):
+        """Get the humidity status of each plant during last 15 minutes and the last watering"""
+        sql = """SELECT ph.plant_id, pi2.plant_name, ROUND(AVG(ph.plant_hum)) AS mean_value, t3.time_elapsed AS last_watering_req, t4.time_elapsed AS last_watering_successful, pi2.default_watering, pi2.plant_location 
+                FROM plant_history ph
+                LEFT JOIN plant_inventory pi2 ON ph.plant_id = pi2.plant_id 
+                LEFT JOIN (
+                    SELECT t1.plant_id, t1.water_quantity, TIMEDIFF(NOW(), t1.timestamp) AS time_elapsed
+                    FROM plant_water t1
+                    JOIN (
+                        SELECT plant_id, MAX(timestamp) AS max_timestamp
+                        FROM plant_water 
+                        GROUP BY plant_id
+                    ) t2 ON t1.plant_id = t2.plant_id AND t1.timestamp = t2.max_timestamp
+                ) t3 ON t3.plant_id = ph.plant_id
+                LEFT JOIN (
+                    SELECT t1.plant_id, t1.water_quantity, TIMEDIFF(NOW(), t1.timestamp) AS time_elapsed
+                    FROM plant_water t1
+                    JOIN (
+                        SELECT plant_id, MAX(timestamp) AS max_timestamp
+                        FROM plant_water 
+                        WHERE watering_done = 1
+                        GROUP BY plant_id
+                    ) t2 ON t1.plant_id = t2.plant_id AND t1.timestamp = t2.max_timestamp
+                ) t4 ON t4.plant_id = ph.plant_id
+                WHERE timestamp >= NOW() - INTERVAL 15 MINUTE
+                GROUP BY ph.plant_id;"""
+        results = self.getValuesFromDB(sql)
+        return results
+
+    def getPlantStatistics(self, plant_id, duration):
+        sql = """SELECT plant_id, ROUND(AVG(plant_hum)) as 'Value', DATE( timestamp ) as 'Date', HOUR( timestamp ) as 'Hour'
+            FROM plant_history
+            WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? DAY
+            GROUP BY DATE( timestamp ), HOUR( timestamp )"""
+        parameters = (int(plant_id), int(duration))
+        results = self.getValuesFromDB(sql, parameters)
+        return results
