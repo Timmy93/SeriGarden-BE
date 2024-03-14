@@ -7,25 +7,32 @@ from MessageHandler import MessageHandler
 
 class MqttClient:
 
-    def on_connect(self, client, userdata, flags, rc):
-        print("Connected with result code " + str(rc))
-
-        # Connect to all plant topics
-        for plant_id in self.go.getAllPlantID():
-            client.subscribe("plant_id/" + str(plant_id))
-            print("Subscribed to topic : plant_id/" + str(plant_id))
-            self.logging.info("Subscribed to topic : plant_id/" + str(plant_id))
-
-    def on_message(self, client, userdata, msg):
-        self.logging.info("Received message")
-        m = MessageHandler(self.logging, msg.payload.decode('utf-8'), msg.topic, self.go)
-        m.start()
-
     def __init__(self, config, log: logging, go):
         self.logging = log
         self.config = config
         self.go = go
         self.client = mqtt.Client()
+
+    def on_connect(self, client, userdata, flags, rc):
+        print("Connected with result code " + str(rc))
+        # Subscribe
+        client.subscribe("greeting")
+        # Subscribe to all existing sensors
+        for sensor in self.go.getAllSensorID():
+            self.subscribe(client, "sensor/" + str(sensor))
+
+    def subscribe(self, client, topic):
+        client.subscribe(topic)
+        print(f"Subscribed to topic : {topic}")
+        self.logging.info(f"Subscribed to topic : {topic}")
+
+    def new_subscription(self, topic):
+        self.client.subscribe(topic)
+
+    def on_message(self, client, userdata, msg):
+        self.logging.info("Received message")
+        m = MessageHandler(self.logging, msg.payload.decode('utf-8'), msg.topic, self.go)
+        m.start()
 
     def start(self):
         self.client.on_connect = self.on_connect

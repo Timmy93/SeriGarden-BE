@@ -3,6 +3,8 @@ import logging
 import os
 import time
 import tomllib
+from unittest.mock import sentinel
+
 import mariadb
 import secrets
 from Database import Database
@@ -64,17 +66,18 @@ class GardenOrchestrator:
             secret = secrets.token_hex()
         return secret
 
-    def add_plant(self, plant_name: str, sensor_id: int, owner: str, plant_location: str, plant_type: str):
+    def add_plant(self, plant_name: str, sensor_id: int, plant_num: int, owner: str, plant_location: str, plant_type: str):
         """
         Insert a new plant in the DB
         :param plant_name: The plant name
         :param sensor_id: The sensor that is managing the plant
+        :param plant_num: The plant number associated to the given sensor
         :param owner: The plant owner
         :param plant_location: The plant location
         :param plant_type: The plant type
         :return:
         """
-        return self.db.insertNewPlant(sensor_id, plant_name, owner, plant_location, plant_type)
+        return self.db.insertNewPlant(sensor_id, plant_name, plant_num, owner, plant_location, plant_type)
 
     def add_detection(self, plant_id: int, humidity: int, sensor_id: int):
         """
@@ -106,6 +109,11 @@ class GardenOrchestrator:
         else:
             self.logging.warning("Invalid input received")
             return None
+
+    def add_sensor(self, sensor_id):
+        self.logging.info(f"Subscribing to the topic of the new sensor #{sensor_id}")
+        print(f"Subscribing to the topic of the new sensor #{sensor_id}")
+        self.mqttc.new_subscription(f"sensor/{sensor_id}")
 
     def ack_watering(self, watering_id: int):
         return self.db.ackWatering(watering_id)
@@ -232,13 +240,36 @@ class GardenOrchestrator:
         :return:
         """
         values = self.db.getAllPlantID()
-        return [d['plant_id'] for d in values]
+        if not values:
+            return []
+        else:
+            return [d['plant_id'] for d in values]
+
+    def getAllSensorID(self):
+        """
+        Retrieve all the plant id in the inventory
+        :return:
+        """
+        values = self.db.getAllSensorID()
+        if not values:
+            return []
+        else:
+            return [d['nodemcu_id'] for d in values]
+
+    def getPlantID(self, sensor_id, plant_num):
+        plant_id = self.db.getPlantID(sensor_id, plant_num)
+        if not plant_id:
+            self.logging.info(f"Registering a new plant [📡{sensor_id}#{plant_num}]")
+            print(f"Registering a new plant [📡{sensor_id}#{plant_num}]")
+            plant_id = self.db.insertNewPlant(sensor_id, f"New Plant [📡{sensor_id}#{plant_num}]", plant_num, "", "", "")
+        return plant_id
 
     def requestWatering(self, plant_id: int, water_quantity: int):
         """Register the watering request and send the MQTT message"""
+        sensor_id, plant_num = self.db.getPlantIDReference(plant_id)
         watering_id = self.db.insertPlantWatering(plant_id, water_quantity)
         water_time = self.elaborateWaterTime(water_quantity)
-        return self.mqttBroker.send_message("water/" + str(plant_id), "w_"+str(watering_id)+"_"+str(water_time))
+        return self.mqttBroker.send_message("water2/" + str(sensor_id), "w_"+str(watering_id)+"_"+str(water_time)+"_"+str(plant_num))
 
     @staticmethod
     def elaborateWaterTime(water_quantity):

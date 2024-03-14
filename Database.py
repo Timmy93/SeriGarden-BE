@@ -12,8 +12,8 @@ class Database:
         self.config = config
         self.logging = log
         self._connection = None
-        self.test_connection()
         self.dbSemaphore = threading.Condition()
+        self.test_connection()
 
     def _connect(self):
         """
@@ -60,6 +60,7 @@ class Database:
         """
         self.get_connection()
         self.disconnect()
+        self.install()
 
     def createDB(self):
         """Initialize the DB creating tables and loading missing data"""
@@ -92,6 +93,7 @@ class Database:
         sql = """CREATE TABLE IF NOT EXISTS """ + self.plant_inventory + """ (
                     plant_id INT auto_increment NOT NULL,
                     plant_name varchar(256) NULL,
+                    plant_num INT NULL,
                     nodemcu_id INT NULL,
                     owner varchar(256) NULL,
                     plant_location varchar(256) NULL,
@@ -152,6 +154,48 @@ class Database:
         else:
             self.logging.warning("Cannot retrieve any plant")
             return None
+
+    def getAllSensorID(self):
+        """
+        Retrieve the list of all sensor that have checked in so far
+        :return:
+        """
+        sql = """SELECT DISTINCT nodemcu_id
+                FROM plant_inventory
+                ORDER BY nodemcu_id;
+                """
+        results = self.getValuesFromDB(sql)
+        if len(results) > 0:
+            return results
+        else:
+            self.logging.warning("Cannot retrieve any plant")
+            return None
+
+    def getPlantID(self, sensor_id, plant_num):
+        sql = """SELECT plant_id
+                FROM """ + self.plant_inventory + """
+                WHERE nodemcu_id = ? AND plant_num = ?;
+                """
+        parameters = (sensor_id, plant_num)
+        results = self.getValuesFromDB(sql, parameters)
+        if len(results) > 0:
+            return results[0]['plant_id']
+        else:
+            self.logging.info(f"This plant {plant_num} has never been tracked by sensor {sensor_id}")
+            return None
+
+    def getPlantIDReference(self, plant_id):
+        sql = """SELECT nodemcu_id, plant_num
+                FROM """ + self.plant_inventory + """
+                WHERE plant_id = ?;
+                """
+        parameters = (plant_id, )
+        results = self.getValuesFromDB(sql, parameters)
+        if len(results) > 0:
+            return results[0]['nodemcu_id'], results[0]['plant_num']
+        else:
+            self.logging.warning(f"This plant {plant_id} is not managed by a sensor")
+            return None, None
 
     def getPlantLastDetections(self):
         """
@@ -238,21 +282,22 @@ class Database:
         results = self.getValuesFromDB(sql, parameters)
         return len(results) > 0
 
-    def insertNewPlant(self, sensor_id: int, plant_name: str, owner: str, plant_location: str, plant_type: str):
+    def insertNewPlant(self, sensor_id: int, plant_name: str, plant_num: int, owner: str, plant_location: str, plant_type: str):
         """
         Register a new plant in the DB
         :param sensor_id: The monitoring sensor ID
-        :param plant_type: The plant type
-        :param plant_location: The plant location
-        :param owner: The plant owner
         :param plant_name: The plant name
+        :param plant_num: The plant number associated to the given sensor
+        :param owner: The plant owner
+        :param plant_location: The plant location
+        :param plant_type: The plant type
         :return: The plant ID
         """
         sql = """INSERT INTO """ + self.plant_inventory + """
-                (plant_name, nodemcu_id, owner, plant_location, plant_type)
-                VALUES(?, ?, ?, ?, ?);
+                (plant_name, nodemcu_id, plant_num, owner, plant_location, plant_type)
+                VALUES(?, ?, ?, ?, ?, ?);
             """
-        values = (plant_name, sensor_id, owner, plant_location, plant_type)
+        values = (plant_name, sensor_id, plant_num, owner, plant_location, plant_type)
         return self.insertValues(sql, values)
 
     def insertPlantDetection(self, plant_id: int, humidity: int, sensor_id: int):
@@ -334,10 +379,6 @@ class Database:
             result.append(out)
         return result
 
-    def populateDB(self):
-        self.logging.warning("Populate to implement")
-        return True
-
     def install(self):
         """
         Install the DB in a single transaction
@@ -345,7 +386,6 @@ class Database:
         """
         with self.dbSemaphore:
             outcome = self.createDB()
-            outcome = outcome + self.populateDB()
             self.disconnect()
             return outcome
 

@@ -54,11 +54,12 @@ def main():
     @app.route("/add/plant")
     def add_plant():
         plant_name = "test222"
+        plant_num = 1
         sensor_id = 1
         owner = "AAAA"
         plant_location = "Roma"
         plant_type = "Fragola"
-        if go.add_plant(plant_name, sensor_id, owner, plant_location, plant_type):
+        if go.add_plant(plant_name, sensor_id, plant_num, owner, plant_location, plant_type):
             return jsonify("Added plant[" + str(plant_name) + "]")
         else:
             logging.warning("Cannot insert this plant [" + str(plant_name) + "]")
