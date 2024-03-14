@@ -1,0 +1,50 @@
+#Config file
+
+[Log]
+    #Where logs are stored
+    logFile = "garden.log"
+
+    #The accuracy level on logging
+    logLevel = 'DEBUG'
+
+
+[Site]
+    #Allowed CORS sites
+    cors = [
+        'https://my.frontend.com', # To specify one or more specific url
+        '*' # To allow all sites
+    ]
+
+    #Api port
+    port = 5001
+
+    #Secret Key
+    SECRET_KEY = "<CREATE_YOUR_SECRET_KEY>"
+    # Test site
+    is_test = false
+    # Job recurrence
+    recurrence = 15
+    # Wait before watering another plant in seconds
+    wait_watering = 60
+
+
+[DB]
+    # The path to the DB
+    db_name = 'iot_db'
+
+    db_user = 'iot_admin'
+
+    db_password = '<CREATE_A_SECURE_PSW_PLEASE>'
+
+    db_host = '<THE_URL_OR_IP_TO_DB>'
+
+    db_port = 3306
+
+[MQTT]
+
+    # The MQTT host
+    host = '<THE_URL_OR_IP_TO_MQTT_BROKER>'
+    # The MQTT port (by default should be 1883)
+    port = 2883
+    # The keepalive timeout
+    keepalive = 60
