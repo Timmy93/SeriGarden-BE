@@ -142,7 +142,7 @@ class Database:
 
     def optimizeDb(self):
         """Run the optimization procedure"""
-        sql = """CREATE INDEX idx_plant_history_max_ts_plant_id ON plant_history(plant_id, timestamp DESC);"""
+        sql = """CREATE INDEX IF NOT EXISTS idx_plant_history_max_ts_plant_id ON plant_history(plant_id, timestamp DESC);"""
         return self.createTable(sql)
 
     def getAllPlantID(self):
