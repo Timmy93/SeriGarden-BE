@@ -156,3 +156,4 @@ DB
 Config/config.toml
 Config/*.log
 .idea/
+.idea/SeriGarden.iml

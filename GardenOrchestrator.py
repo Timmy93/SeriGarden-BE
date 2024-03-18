@@ -119,7 +119,7 @@ class GardenOrchestrator:
         return self.db.ackWatering(watering_id)
 
     def getPlantRecap(self):
-        self.logging.debug("Gettin recap")
+        self.logging.debug("Getting recap")
         status = self.db.getPlantLastDetections()
         return status
 

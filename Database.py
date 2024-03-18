@@ -69,6 +69,7 @@ class Database:
         outcome = outcome and self.createPlantInventory()
         outcome = outcome and self.createPlantHistory()
         outcome = outcome and self.createPlantWaterHistory()
+        outcome = outcome and self.optimizeDb()
         if outcome:
             self.logging.info("DB setup completed")
         else:
@@ -139,6 +140,11 @@ class Database:
                 COMMENT='The last watering done';"""
         return self.createTable(sql)
 
+    def optimizeDb(self):
+        """Run the optimization procedure"""
+        sql = """CREATE INDEX idx_plant_history_max_ts_plant_id ON plant_history(plant_id, timestamp DESC);"""
+        return self.createTable(sql)
+
     def getAllPlantID(self):
         """
         Retrieve the list of all plant ID monitored
@@ -148,8 +154,10 @@ class Database:
                 FROM plant_inventory
                 ORDER BY plant_id;
                 """
+        self.logging.debug("Getting all plant")
         results = self.getValuesFromDB(sql)
         if len(results) > 0:
+            self.logging.debug(f"Retrieved {len(results)} plants")
             return results
         else:
             self.logging.warning("Cannot retrieve any plant")
@@ -164,8 +172,10 @@ class Database:
                 FROM plant_inventory
                 ORDER BY nodemcu_id;
                 """
+        self.logging.debug("Getting all sensors")
         results = self.getValuesFromDB(sql)
         if len(results) > 0:
+            self.logging.debug(f"Retrieved {len(results)} sensors")
             return results
         else:
             self.logging.warning("Cannot retrieve any plant")
@@ -176,9 +186,11 @@ class Database:
                 FROM """ + self.plant_inventory + """
                 WHERE nodemcu_id = ? AND plant_num = ?;
                 """
+        self.logging.debug(f"Retrieving plant_id of plant #{plant_num} for sensor {sensor_id}")
         parameters = (sensor_id, plant_num)
         results = self.getValuesFromDB(sql, parameters)
         if len(results) > 0:
+            self.logging.debug(f"Retrieved plant_id #{results[0]['plant_id']}")
             return results[0]['plant_id']
         else:
             self.logging.info(f"This plant {plant_num} has never been tracked by sensor {sensor_id}")
@@ -190,8 +202,10 @@ class Database:
                 WHERE plant_id = ?;
                 """
         parameters = (plant_id, )
+        self.logging.debug(f"Retrieving sensor and num for plant #{plant_id}")
         results = self.getValuesFromDB(sql, parameters)
         if len(results) > 0:
+            self.logging.info(f"Retrieved sensor { results[0]['nodemcu_id']} and num {results[0]['plant_num']}")
             return results[0]['nodemcu_id'], results[0]['plant_num']
         else:
             self.logging.warning(f"This plant {plant_id} is not managed by a sensor")
@@ -230,6 +244,7 @@ class Database:
         """
         results = self.getValuesFromDB(sql)
         if len(results) > 0:
+            self.logging.debug(f"Got recap for {len(results)} plants")
             return results
         else:
             self.logging.warning("Cannot retrieve last detection recap")
