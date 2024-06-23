@@ -218,26 +218,26 @@ class Database:
         """
         sql = """SELECT pi2.plant_id, pi2.plant_name, pi2.nodemcu_id, pi2.owner, pi2.plant_location, pi2.plant_type, ph.plant_hum, ph.timestamp as detection_ts, pw.water_quantity, pw.timestamp as watering_ts
                 FROM (
-                    SELECT *
+                    SELECT ph.plant_id, ph.plant_hum, ph.timestamp
                     FROM """ + self.plant_history + """ ph 
                     JOIN (
-                        SELECT MAX(ph_max.timestamp) AS max_ts
+                        SELECT ph_max.plant_id, MAX(ph_max.timestamp) AS max_ts
                         FROM """ + self.plant_history + """ ph_max
                         GROUP BY ph_max.plant_id
                         ORDER BY ph_max.plant_id
-                    ) tt on ph.timestamp = tt.max_ts
+                    ) tt on ph.timestamp = tt.max_ts AND ph.plant_id = tt.plant_id
                     ORDER BY ph.plant_id 
-                ) ph
+                ) ph                
                 LEFT JOIN (
-                    SELECT *
-                    FROM """ + self.plant_water + """ pw 
-                    JOIN (
-                        SELECT MAX(pw_max.timestamp) AS max_ts
-                        FROM """ + self.plant_water + """ pw_max
-                        GROUP BY pw_max.plant_id
-                        ORDER BY pw_max.plant_id
-                    ) tt on pw.timestamp = tt.max_ts
-                ) pw ON ph.plant_id = pw.plant_id
+                    SELECT pw.plant_id, pw.timestamp, pw.water_quantity
+                        FROM """ + self.plant_water + """ pw 
+                        JOIN (
+                            SELECT pw_max.plant_id, MAX(pw_max.timestamp) AS max_ts
+                            FROM """ + self.plant_water + """ pw_max
+                            GROUP BY pw_max.plant_id
+                            ORDER BY pw_max.plant_id
+                        ) tt on pw.timestamp = tt.max_ts AND pw.plant_id = tt.plant_id
+                    ) pw ON ph.plant_id = pw.plant_id
                 RIGHT JOIN """ + self.plant_inventory + """ pi2 ON ph.plant_id=pi2.plant_id 
                 GROUP BY pi2.plant_id
                 ORDER BY pi2.plant_id
