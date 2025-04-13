@@ -77,7 +77,7 @@ class GardenOrchestrator:
         :param plant_type: The plant type
         :return:
         """
-        return self.db.insertNewPlant(sensor_id, plant_name, plant_num, owner, plant_location, plant_type)
+        return self.db.insert_new_plant(sensor_id, plant_name, plant_num, owner, plant_location, plant_type)
 
     def add_detection(self, plant_id: int, humidity: int, sensor_id: int):
         """
@@ -89,7 +89,7 @@ class GardenOrchestrator:
         """
         self.logging.debug("Adding detection")
 
-        return self.db.insertPlantDetection(plant_id, humidity, sensor_id)
+        return self.db.insert_plant_detection(plant_id, humidity, sensor_id)
 
     def add_water(self, plant_id, water_quantity):
         """
@@ -105,7 +105,7 @@ class GardenOrchestrator:
             plant_id = int(plant_id)
             water_quantity = int(water_quantity)
             # Adding requested water
-            return self.requestWatering(plant_id, water_quantity)
+            return self.request_watering(plant_id, water_quantity)
         else:
             self.logging.warning("Invalid input received")
             return None
@@ -116,18 +116,18 @@ class GardenOrchestrator:
         self.mqttc.new_subscription(f"sensor/{sensor_id}")
 
     def ack_watering(self, watering_id: int):
-        return self.db.ackWatering(watering_id)
+        return self.db.ack_watering(watering_id)
 
-    def getPlantRecap(self):
+    def get_plant_recap(self):
         self.logging.debug("Getting recap")
-        status = self.db.getPlantLastDetections()
+        status = self.db.get_plant_last_detections()
         return status
 
-    def getPlantStatistics(self, plant_id, duration):
-        status = self.db.getPlantStatistics(plant_id, duration)
+    def get_plant_statistics(self, plant_id, duration):
+        status = self.db.get_plant_statistics(plant_id, duration)
         return status
 
-    def getPort(self):
+    def get_port(self):
         """Retrieve the port for the service"""
         port = self.config.get('Site').get('port') or 5000
         return port
@@ -166,25 +166,25 @@ class GardenOrchestrator:
             print("Cannot connect to DB [" + str(e) + "]")
             exit(1)
 
-    def getAllowedCorsSites(self):
+    def get_allowed_cors_sites(self):
         allowed = self.config.get('Site').get('cors') or ['http://localhost']
         self.logging.debug("CORS allowed: " + str(allowed))
         return allowed
 
-    def evaluateWatering(self):
+    def evaluate_watering(self):
         # Get action to execute based on time, humidity, default humidity
-        actions = self.elaborateWatering()
+        actions = self.elaborate_watering()
         # Communicate to sensors to water plant if needed
-        used_water = self.transmitActions(actions)
+        used_water = self.transmit_actions(actions)
         return {'actions': len(actions), 'water': used_water}
 
-    def elaborateWatering(self):
+    def elaborate_watering(self):
         """
         This is the core function of the script that elaborate the status of the plant based on several parameters
         :return:
         """
         actions = []
-        summary = self.db.getPlantActionSummary()
+        summary = self.db.get_plant_action_summary()
         for plant_summary in summary:
             # Extract variables
             plant_id = plant_summary.get('plant_id')
@@ -196,9 +196,9 @@ class GardenOrchestrator:
             last_watering = datetime.datetime.now() - lw
             last_request = datetime.datetime.now() - lr
             # Check watering time and if it's time to re-water
-            if self.isWateringTime(plant_summary.get('plant_location')):
-                if self.wateringNeeded(humidity):
-                    if self.timeToRewater(last_watering, last_request):
+            if self.is_watering_time(plant_summary.get('plant_location')):
+                if self.watering_needed(humidity):
+                    if self.time_to_water(last_watering, last_request):
                         if default_watering > 0:
                             self.logging.info("Added watering request for: " + plant_name + " #" + str(plant_id))
                             actions.append({'plant_id': plant_id, 'plant_name': plant_name, 'water_quantity': default_watering})
@@ -212,7 +212,7 @@ class GardenOrchestrator:
             #     self.logging.debug("It is not watering time")
         return actions
 
-    def transmitActions(self, actions: list):
+    def transmit_actions(self, actions: list):
         """
         This function will inform the different sensor if any action is required
         :param actions:
@@ -234,45 +234,45 @@ class GardenOrchestrator:
             time.sleep(self.config['Site'].get('wait_watering', 60))
         return water
 
-    def getAllPlantID(self):
+    def get_all_plant_id(self):
         """
         Retrieve all the plant id in the inventory
         :return:
         """
-        values = self.db.getAllPlantID()
+        values = self.db.get_all_plant_id()
         if not values:
             return []
         else:
             return [d['plant_id'] for d in values]
 
-    def getAllSensorID(self):
+    def get_all_sensor_id(self):
         """
         Retrieve all the plant id in the inventory
         :return:
         """
-        values = self.db.getAllSensorID()
+        values = self.db.get_all_sensor_id()
         if not values:
             return []
         else:
             return [d['nodemcu_id'] for d in values]
 
-    def getPlantID(self, sensor_id, plant_num):
-        plant_id = self.db.getPlantID(sensor_id, plant_num)
+    def get_plant_id(self, sensor_id, plant_num):
+        plant_id = self.db.get_plant_id(sensor_id, plant_num)
         if not plant_id:
             self.logging.info(f"Registering a new plant [📡{sensor_id}#{plant_num}]")
             print(f"Registering a new plant [📡{sensor_id}#{plant_num}]")
-            plant_id = self.db.insertNewPlant(sensor_id, f"New Plant [📡{sensor_id}#{plant_num}]", plant_num, "", "", "")
+            plant_id = self.db.insert_new_plant(sensor_id, f"New Plant [📡{sensor_id}#{plant_num}]", plant_num, "", "", "")
         return plant_id
 
-    def requestWatering(self, plant_id: int, water_quantity: int):
+    def request_watering(self, plant_id: int, water_quantity: int):
         """Register the watering request and send the MQTT message"""
-        sensor_id, plant_num = self.db.getPlantIDReference(plant_id)
-        watering_id = self.db.insertPlantWatering(plant_id, water_quantity)
-        water_time = self.elaborateWaterTime(water_quantity)
+        sensor_id, plant_num = self.db.get_plant_id_reference(plant_id)
+        watering_id = self.db.insert_plant_watering(plant_id, water_quantity)
+        water_time = self.elaborate_water_time(water_quantity)
         return self.mqttBroker.send_message("water2/" + str(sensor_id), "w_"+str(watering_id)+"_"+str(water_time)+"_"+str(plant_num))
 
     @staticmethod
-    def elaborateWaterTime(water_quantity):
+    def elaborate_water_time(water_quantity):
         """
         Function used to calculate the watering time for a given quantity
         :param water_quantity:
@@ -287,9 +287,9 @@ class GardenOrchestrator:
         water_time = round(water_quantity/flow_rate + initial_delta)
         return water_time
 
-    def isWateringTime(self, current_location):
+    def is_watering_time(self, current_location):
         """Check if it's night"""
-        start_watering, end_watering = self.getCurrentLocationTimes(current_location)
+        start_watering, end_watering = self.get_current_location_times(current_location)
         # self.logging.debug("Watering time starts:" + str(start_watering) + "- Watering time ends:" + str(end_watering))
         return self.time_in_range(start_watering, end_watering, datetime.datetime.now().time())
 
@@ -301,7 +301,7 @@ class GardenOrchestrator:
         else:
             return start <= x or x <= end
 
-    def getCurrentLocationTimes(self, current_location):
+    def get_current_location_times(self, current_location):
         """From geolocation get information on today sunrise and sunset"""
         default_sunset = datetime.time(23, 0, 0)
         default_sunrise = datetime.time(7, 0, 0)
@@ -320,16 +320,16 @@ class GardenOrchestrator:
                 return default_sunset, default_sunrise
 
     @staticmethod
-    def timeToRewater(last_watering, last_request):
+    def time_to_water(last_watering, last_request):
         """Check if the minimum time between two watering is elapsed"""
         minimum_minutes_between_watering = 120
         minimum_minutes_between_requests = 15
-        can_rewater = last_watering < datetime.datetime.now() - datetime.timedelta(minutes=minimum_minutes_between_watering)
+        can_water_again = last_watering < datetime.datetime.now() - datetime.timedelta(minutes=minimum_minutes_between_watering)
         can_request = last_request < datetime.datetime.now() - datetime.timedelta(minutes=minimum_minutes_between_requests)
-        return can_rewater and can_request
+        return can_water_again and can_request
 
     @staticmethod
-    def wateringNeeded(humidity):
+    def watering_needed(humidity):
         """Analyse if the plant require a new humidity"""
         # TODO implement an algorithm based on plant type
         return int(humidity) < 50

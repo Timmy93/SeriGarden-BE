@@ -62,21 +62,21 @@ class Database:
         self.disconnect()
         self.install()
 
-    def createDB(self):
+    def create_db(self):
         """Initialize the DB creating tables and loading missing data"""
         # Create table
         outcome = True
-        outcome = outcome and self.createPlantInventory()
-        outcome = outcome and self.createPlantHistory()
-        outcome = outcome and self.createPlantWaterHistory()
-        outcome = outcome and self.optimizeDb()
+        outcome = outcome and self.create_plant_inventory()
+        outcome = outcome and self.create_plant_history()
+        outcome = outcome and self.create_plant_water_history()
+        outcome = outcome and self.optimize_db()
         if outcome:
             self.logging.info("DB setup completed")
         else:
             self.logging.warning("Cannot create DB tables")
         return outcome
 
-    def createTable(self, sql: str):
+    def create_table(self, sql: str):
         con = self.get_connection()
         c = con.cursor()
         try:
@@ -89,7 +89,7 @@ class Database:
             print(f"Error: {e}")
             return False
 
-    def createPlantInventory(self):
+    def create_plant_inventory(self):
         """Create a table containing all the known plant"""
         sql = """CREATE TABLE IF NOT EXISTS """ + self.plant_inventory + """ (
                     plant_id INT auto_increment NOT NULL,
@@ -106,9 +106,9 @@ class Database:
                 DEFAULT CHARSET=utf8mb4
                 COLLATE=utf8mb4_general_ci
                 COMMENT='The list of my plant';"""
-        return self.createTable(sql)
+        return self.create_table(sql)
 
-    def createPlantHistory(self):
+    def create_plant_history(self):
         """Create a table containing all the plant status detection"""
         sql = """CREATE TABLE IF NOT EXISTS """ + self.plant_history + """ (
                     detection_id INT auto_increment NOT NULL,
@@ -122,9 +122,9 @@ class Database:
                 DEFAULT CHARSET=utf8mb4
                 COLLATE=utf8mb4_general_ci
                 COMMENT='The last detections of plant soil humidity';"""
-        return self.createTable(sql)
+        return self.create_table(sql)
 
-    def createPlantWaterHistory(self):
+    def create_plant_water_history(self):
         """Create a table containing all the last watering done"""
         sql = """CREATE TABLE IF NOT EXISTS """ + self.plant_water + """ (
                     watering_id INT auto_increment NOT NULL,
@@ -138,14 +138,14 @@ class Database:
                 DEFAULT CHARSET=utf8mb4
                 COLLATE=utf8mb4_general_ci
                 COMMENT='The last watering done';"""
-        return self.createTable(sql)
+        return self.create_table(sql)
 
-    def optimizeDb(self):
+    def optimize_db(self):
         """Run the optimization procedure"""
         sql = """CREATE INDEX IF NOT EXISTS idx_plant_history_max_ts_plant_id ON plant_history(plant_id, timestamp DESC);"""
-        return self.createTable(sql)
+        return self.create_table(sql)
 
-    def getAllPlantID(self):
+    def get_all_plant_id(self):
         """
         Retrieve the list of all plant ID monitored
         :return:
@@ -155,7 +155,7 @@ class Database:
                 ORDER BY plant_id;
                 """
         self.logging.debug("Getting all plant")
-        results = self.getValuesFromDB(sql)
+        results = self.get_values_from_db(sql)
         if len(results) > 0:
             self.logging.debug(f"Retrieved {len(results)} plants")
             return results
@@ -163,7 +163,7 @@ class Database:
             self.logging.warning("Cannot retrieve any plant")
             return None
 
-    def getAllSensorID(self):
+    def get_all_sensor_id(self):
         """
         Retrieve the list of all sensor that have checked in so far
         :return:
@@ -173,7 +173,7 @@ class Database:
                 ORDER BY nodemcu_id;
                 """
         self.logging.debug("Getting all sensors")
-        results = self.getValuesFromDB(sql)
+        results = self.get_values_from_db(sql)
         if len(results) > 0:
             self.logging.debug(f"Retrieved {len(results)} sensors")
             return results
@@ -181,14 +181,14 @@ class Database:
             self.logging.warning("Cannot retrieve any plant")
             return None
 
-    def getPlantID(self, sensor_id, plant_num):
+    def get_plant_id(self, sensor_id, plant_num):
         sql = """SELECT plant_id
                 FROM """ + self.plant_inventory + """
                 WHERE nodemcu_id = ? AND plant_num = ?;
                 """
         self.logging.debug(f"Retrieving plant_id of plant #{plant_num} for sensor {sensor_id}")
         parameters = (sensor_id, plant_num)
-        results = self.getValuesFromDB(sql, parameters)
+        results = self.get_values_from_db(sql, parameters)
         if len(results) > 0:
             self.logging.debug(f"Retrieved plant_id #{results[0]['plant_id']}")
             return results[0]['plant_id']
@@ -196,14 +196,14 @@ class Database:
             self.logging.info(f"This plant {plant_num} has never been tracked by sensor {sensor_id}")
             return None
 
-    def getPlantIDReference(self, plant_id):
+    def get_plant_id_reference(self, plant_id):
         sql = """SELECT nodemcu_id, plant_num
                 FROM """ + self.plant_inventory + """
                 WHERE plant_id = ?;
                 """
         parameters = (plant_id, )
         self.logging.debug(f"Retrieving sensor and num for plant #{plant_id}")
-        results = self.getValuesFromDB(sql, parameters)
+        results = self.get_values_from_db(sql, parameters)
         if len(results) > 0:
             self.logging.info(f"Retrieved sensor { results[0]['nodemcu_id']} and num {results[0]['plant_num']}")
             return results[0]['nodemcu_id'], results[0]['plant_num']
@@ -211,7 +211,7 @@ class Database:
             self.logging.warning(f"This plant {plant_id} is not managed by a sensor")
             return None, None
 
-    def getPlantLastDetections(self):
+    def get_plant_last_detections(self):
         """
         Retrieve the recap of all plant detection
         :return:
@@ -242,7 +242,7 @@ class Database:
                 GROUP BY pi2.plant_id
                 ORDER BY pi2.plant_id
         """
-        results = self.getValuesFromDB(sql)
+        results = self.get_values_from_db(sql)
         if len(results) > 0:
             self.logging.debug(f"Got recap for {len(results)} plants")
             return results
@@ -250,7 +250,7 @@ class Database:
             self.logging.warning("Cannot retrieve last detection recap")
             return None
 
-    def getPlantSensorId(self, plant_id):
+    def get_plant_sensor_id(self, plant_id):
         """
         Retrieve the current sensor id of this plant
         :param plant_id:
@@ -262,27 +262,27 @@ class Database:
             WHERE plant_id = ?;
         """
         parameters = (plant_id,)
-        results = self.getValuesFromDB(sql, parameters)
+        results = self.get_values_from_db(sql, parameters)
         if len(results) > 0:
             return results[0]['nodemcu_id']
         else:
             self.logging.warning("This plant [" + str(plant_id) + "] has no sensor registered")
             return None
 
-    def addPlantDetection(self, plant_id: int, humidity: int) -> int | None:
+    def add_plant_detection(self, plant_id: int, humidity: int) -> int | None:
         """
         Add a plant detection - If the plant is missing register the new Plant
         :return: The detection ID
         """
-        if not self.knownPlant(plant_id):
+        if not self.known_plant(plant_id):
             self.logging.warning("Attempting to insert detection for an unknown plant: [" + str(plant_id) + "]")
             return None
         else:
             self.logging.debug("Adding detection for plant ["+str(plant_id)+"]")
-            sensor_id = self.getPlantSensorId(plant_id)
-            return self.insertPlantDetection(plant_id, humidity, sensor_id)
+            sensor_id = self.get_plant_sensor_id(plant_id)
+            return self.insert_plant_detection(plant_id, humidity, sensor_id)
 
-    def knownPlant(self, plant_id: int) -> bool:
+    def known_plant(self, plant_id: int) -> bool:
         """
         Check if a plant exists
         :param plant_id: The plant id to check
@@ -294,10 +294,10 @@ class Database:
             WHERE plant_id = ?;
         """
         parameters = (plant_id,)
-        results = self.getValuesFromDB(sql, parameters)
+        results = self.get_values_from_db(sql, parameters)
         return len(results) > 0
 
-    def insertNewPlant(self, sensor_id: int, plant_name: str, plant_num: int, owner: str, plant_location: str, plant_type: str):
+    def insert_new_plant(self, sensor_id: int, plant_name: str, plant_num: int, owner: str, plant_location: str, plant_type: str):
         """
         Register a new plant in the DB
         :param sensor_id: The monitoring sensor ID
@@ -313,9 +313,9 @@ class Database:
                 VALUES(?, ?, ?, ?, ?, ?);
             """
         values = (plant_name, sensor_id, plant_num, owner, plant_location, plant_type)
-        return self.insertValues(sql, values)
+        return self.insert_values(sql, values)
 
-    def insertPlantDetection(self, plant_id: int, humidity: int, sensor_id: int):
+    def insert_plant_detection(self, plant_id: int, humidity: int, sensor_id: int):
         """
         Save a new humidity detection in the DB
         :param sensor_id: The detection sensor
@@ -328,9 +328,9 @@ class Database:
                 VALUES(?, ?, ?);
             """
         values = (plant_id, humidity, sensor_id)
-        return self.insertValues(sql, values)
+        return self.insert_values(sql, values)
 
-    def insertPlantWatering(self, plant_id: int, water_quantity: int) -> int | None:
+    def insert_plant_watering(self, plant_id: int, water_quantity: int) -> int | None:
         """
         Insert a watering activity in the DB
         :param plant_id: The watered plant
@@ -342,18 +342,18 @@ class Database:
                        VALUES(?, ?);
                    """
         values = (plant_id, water_quantity)
-        return self.insertValues(sql, values)
+        return self.insert_values(sql, values)
 
-    def ackWatering(self, watering_id: int):
+    def ack_watering(self, watering_id: int):
         """Register the watering confirmation from plant"""
         sql = """UPDATE """ + self.plant_water + """
                        SET watering_done = TRUE
                        WHERE watering_id = ?;
                 """
         values = (watering_id, )
-        return self.insertValues(sql, values)
+        return self.insert_values(sql, values)
 
-    def insertValues(self, insert_query: str, values: tuple):
+    def insert_values(self, insert_query: str, values: tuple):
         """
         Insert the given values inside the DB
         :param insert_query: The insert query to run
@@ -372,7 +372,7 @@ class Database:
             self.disconnect()
             return insertion_id
 
-    def getValuesFromDB(self, sql, values=None):
+    def get_values_from_db(self, sql, values=None):
         with self.dbSemaphore:
             c = self.get_connection().cursor()
             if values:
@@ -400,11 +400,11 @@ class Database:
         :return:
         """
         with self.dbSemaphore:
-            outcome = self.createDB()
+            outcome = self.create_db()
             self.disconnect()
             return outcome
 
-    def getPlantActionSummary(self):
+    def get_plant_action_summary(self):
         """Get the humidity status of each plant during last 15 minutes and the last watering"""
         sql = """SELECT ph.plant_id, pi2.plant_name, ROUND(AVG(ph.plant_hum)) AS mean_value, t3.time_elapsed AS last_watering_req, t4.time_elapsed AS last_watering_successful, pi2.default_watering, pi2.plant_location 
                 FROM plant_history ph
@@ -430,14 +430,14 @@ class Database:
                 ) t4 ON t4.plant_id = ph.plant_id
                 WHERE timestamp >= NOW() - INTERVAL 15 MINUTE
                 GROUP BY ph.plant_id;"""
-        results = self.getValuesFromDB(sql)
+        results = self.get_values_from_db(sql)
         return results
 
-    def getPlantStatistics(self, plant_id, duration):
+    def get_plant_statistics(self, plant_id, duration):
         sql = """SELECT plant_id, ROUND(AVG(plant_hum)) as 'Value', DATE( timestamp ) as 'Date', HOUR( timestamp ) as 'Hour'
             FROM plant_history
             WHERE plant_id = ? AND timestamp > NOW() - INTERVAL ? DAY
             GROUP BY DATE( timestamp ), HOUR( timestamp )"""
         parameters = (int(plant_id), int(duration))
-        results = self.getValuesFromDB(sql, parameters)
+        results = self.get_values_from_db(sql, parameters)
         return results

@@ -7,6 +7,6 @@ mariadb==1.1.12
 # MQTT requirements
 paho-mqtt==2.1.0
 # Scheduled tasks requirements
-schedule==1.2
+schedule==1.2.2
 # Get location current time
 astral==3.2

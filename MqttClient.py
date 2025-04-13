@@ -18,7 +18,7 @@ class MqttClient:
         # Subscribe
         client.subscribe("greeting")
         # Subscribe to all existing sensors
-        for sensor in self.go.getAllSensorID():
+        for sensor in self.go.get_all_sensor_id():
             self.subscribe(client, "sensor/" + str(sensor))
 
     def subscribe(self, client, topic):

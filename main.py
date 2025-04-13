@@ -17,7 +17,7 @@ def main():
     app.config['SECRET_KEY'] = go.getAppSecret()
     app.config['CORS_HEADERS'] = 'Content-Type'
     CORS(app,
-         origins=go.getAllowedCorsSites(),
+         origins=go.get_allowed_cors_sites(),
          expose_headers=["Content-Disposition"],
          allow_headers=["Content-Type", "Accept"],
          methods=['GET', 'POST', 'OPTIONS']
@@ -29,19 +29,19 @@ def main():
 
     @app.route("/status")
     def show_status():
-        res = go.getPlantRecap()
+        res = go.get_plant_recap()
         return jsonify(res)
 
     @app.route("/statistic/daily/<plant_id>", methods=['GET'])
     def get_daily_statistics(plant_id):
         duration = 1
-        res = go.getPlantStatistics(plant_id, duration)
+        res = go.get_plant_statistics(plant_id, duration)
         return jsonify(res)
 
     @app.route("/statistic/weekly/<plant_id>", methods=['GET'])
     def get_weekly_statistics(plant_id):
         duration = 7
-        res = go.getPlantStatistics(plant_id, duration)
+        res = go.get_plant_statistics(plant_id, duration)
         return jsonify(res)
 
     @app.route("/install")
@@ -104,7 +104,7 @@ def main():
             return jsonify("Cannot add detection for plant [" + str(plant_id) + "]")
 
     #Start webserver
-    serve(app, host='0.0.0.0', port=go.getPort())
+    serve(app, host='0.0.0.0', port=go.get_port())
 
 
 if __name__ == '__main__':

@@ -36,5 +36,5 @@ class Scheduler(threading.Thread):
 
     def job(self):
         self.logging.debug("Starting threaded job")
-        recap = self.go.evaluateWatering()
+        recap = self.go.evaluate_watering()
         self.logging.info("Requested " + str(recap.get('actions')) + " watering using " + str(recap.get('water')) + "ml")
