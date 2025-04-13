@@ -10,3 +10,5 @@ paho-mqtt==2.1.0
 schedule==1.2.2
 # Get location current time
 astral==3.2
+# For testing
+pytest==8.3.5
