@@ -1,6 +1,6 @@
 # HTTP server requirements
-flask==3.1.0
-flask_cors==5.0.1
+flask==3.1.1
+flask_cors==6.0.0
 waitress==3.0.2
 # DB requirements
 mariadb==1.1.12
